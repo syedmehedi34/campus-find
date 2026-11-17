@@ -12,10 +12,10 @@ import Home from "../pages/Home/Home";
 import Login from "../pages/Auth/Login";
 import Registration from "../pages/Auth/Registration";
 
-// Future Pages - Create these files when needed
-
+// Future Pages
 import About from "../pages/About/About";
 import NewPost from "../pages/NewPost/NewPost";
+import AllPosts from "../pages/AllPosts/AllPosts";
 
 // import PostLostItem from "../pages/Items/PostLostItem";
 // import PostFoundItem from "../pages/Items/PostFoundItem";
@@ -103,17 +103,17 @@ export const router = createBrowserRouter([
         element: <About />,
       },
 
-      // All Lost Items
+      // all posts
+      {
+        path: "posts",
+        element: <AllPosts />,
+      },
+
+      // create new post
       {
         path: "create-post",
         element: <NewPost />,
       },
-
-      // All Found Items
-      // {
-      //   path: "found-items",
-      //   element: <FoundItems />,
-      // },
     ],
   },
 

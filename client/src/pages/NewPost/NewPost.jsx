@@ -1,190 +1,285 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import Swal from "sweetalert2";
+import {
+  FaSearch,
+  FaHandHoldingHeart,
+  FaBoxOpen,
+  FaMapMarkerAlt,
+  FaCalendarAlt,
+  FaClock,
+  FaPhoneAlt,
+  FaTag,
+  FaRegFileAlt,
+  FaRegLightbulb,
+  FaArrowRight,
+  FaShieldAlt,
+  FaCheckCircle,
+} from "react-icons/fa";
+
+import ImageUploader from "./ImageUploader";
 import useUserData from "../../hooks/useUserData";
 import useAxiosPublic from "../../hooks/useAxiosPublic";
 
-const NewPost = () => {
-  const { loggedInUser, loggedInUserLoading } = useUserData();
-  const axiosPublic = useAxiosPublic();
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
+import "./NewPost.css";
 
-  const today = new Date();
-  const localDate = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, "0"),
-    String(today.getDate()).padStart(2, "0"),
-  ].join("-");
+const categories = [
+  "electronics",
+  "gadgets",
+  "accessories",
+  "stationery",
+  "books",
+  "clothing",
+  "footwear",
+  "id-cards",
+  "wallets-purses",
+  "keys",
+  "other",
+];
 
-  const [formData, setFormData] = useState({
-    type: "lost",
-    itemName: "",
-    category: "",
-    description: "",
-    images: "",
+const initialFormData = {
+  type: "lost",
+  itemName: "",
+  category: "",
+  description: "",
+  images: [],
+  location: {
     area: "",
     specificLocation: "",
-    date: localDate,
-    approximateTime: "",
-    identifyingFeatures: "",
-    contactPreference: loggedInUser?.phone || "",
-  });
+  },
+  date: "",
+  approximateTime: "",
+  identifyingFeatures: "",
+  contactPreference: null,
+};
 
-  const createPostMutation = useMutation({
-    mutationFn: async (postData) => {
-      const res = await axiosPublic.post("/items", postData);
-      return res.data;
-    },
+const NewPost = () => {
+  const { loggedInUser } = useUserData();
+  const axiosPublic = useAxiosPublic();
+  const queryClient = useQueryClient();
 
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["items"] });
-      alert("Your post has been created successfully!");
-      navigate("/");
-    },
+  const [formData, setFormData] = useState(initialFormData);
 
-    onError: (error) => {
-      console.error(error);
-      alert(error.response?.data?.message || "Failed to create post!");
-    },
-  });
+  const showToast = (icon, title) => {
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      icon,
+      title,
+      showConfirmButton: false,
+      timer: 3000,
+      timerProgressBar: true,
+    });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === "area" || name === "specificLocation") {
+      setFormData((prev) => ({
+        ...prev,
+        location: {
+          ...prev.location,
+          [name]: value,
+        },
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
+
+  const mutation = useMutation({
+    mutationFn: async (postData) => {
+      const response = await axiosPublic.post("/items", postData);
+      return response.data;
+    },
+
+    onSuccess: () => {
+      showToast("success", "Your post has been published!");
+
+      queryClient.invalidateQueries({
+        queryKey: ["items"],
+      });
+
+      setFormData({
+        ...initialFormData,
+        location: { ...initialFormData.location },
+      });
+    },
+
+    onError: (error) => {
+      console.error("Post creation error:", error);
+
+      showToast(
+        "error",
+        error.response?.data?.message || "Failed to publish your post!",
+      );
+    },
+  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
     if (!loggedInUser?.userId) {
-      alert("Please login first!");
+      showToast("warning", "Please login before creating a post!");
+      return;
+    }
+
+    if (!formData.itemName.trim()) {
+      showToast("warning", "Please enter the item name!");
+      return;
+    }
+
+    if (!formData.category) {
+      showToast("warning", "Please select a category!");
+      return;
+    }
+
+    if (!formData.images.length) {
+      showToast("warning", "Please upload at least one image!");
       return;
     }
 
     const postData = {
+      ...formData,
       userId: loggedInUser.userId,
-      type: formData.type,
-      itemName: formData.itemName.trim(),
-      category: formData.category,
-      description: formData.description.trim(),
-
-      // Multiple image URLs separated by commas or new lines
-      images: formData.images
-        .split(/[\n,]+/)
-        .map((url) => url.trim())
-        .filter(Boolean),
-
-      location: {
-        area: formData.area.trim(),
-        specificLocation: formData.specificLocation.trim(),
-      },
-
-      date: formData.date,
-      approximateTime: formData.approximateTime,
-      identifyingFeatures: formData.identifyingFeatures.trim(),
-      contactPreference: formData.contactPreference.trim(),
+      contactPreference: formData.contactPreference ?? loggedInUser.phone ?? "",
     };
 
-    createPostMutation.mutate(postData);
+    mutation.mutate(postData);
   };
 
-  if (loggedInUserLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <span className="loading loading-spinner loading-lg text-blue-600"></span>
-      </div>
-    );
-  }
-
-  if (!loggedInUser) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <p className="text-center text-gray-600">
-          Please login to create a post.
-        </p>
-      </div>
-    );
-  }
-
-  const inputClass =
-    "w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
-
-  const labelClass = "mb-2 block text-sm font-semibold text-gray-700";
+  const updateImages = (images) => {
+    setFormData((prev) => ({
+      ...prev,
+      images: typeof images === "function" ? images(prev.images) : images,
+    }));
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10 md:py-14">
-      <div className="mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <span className="mb-3 inline-block rounded-full bg-blue-100 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-blue-700">
-            Campus Find Community
-          </span>
+    <div className="new-post-page">
+      <div className="np-glow np-glow-one"></div>
+      <div className="np-glow np-glow-two"></div>
+      <div className="np-grid-pattern"></div>
 
-          <h1 className="text-3xl font-extrabold text-gray-900 md:text-4xl">
-            Create a New Post
-          </h1>
+      <div className="np-container">
+        {/* Hero section */}
+        <section className="np-hero">
+          <div className="np-hero-content">
+            <div className="np-breadcrumb">
+              <span>LOSTHUB</span>
+              <span className="np-breadcrumb-dot">/</span>
+              <span>Create Post</span>
+            </div>
 
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-gray-500 md:text-base">
-            Lost something or found something on campus? Share the details and
-            help reunite people with their belongings.
-          </p>
-        </div>
+            <div className="np-hero-badge">
+              <FaHandHoldingHeart />
+              <span>Community starts with helping</span>
+            </div>
 
-        {/* User Information */}
-        <div className="mb-6 flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-          <img
-            src={
-              loggedInUser.photoUrl ||
-              "https://ui-avatars.com/api/?name=Campus+User"
-            }
-            alt={loggedInUser.name}
-            className="h-12 w-12 rounded-full object-cover"
-          />
+            <h1>
+              Lost something?
+              <br />
+              <span>Let's find it together.</span>
+            </h1>
 
-          <div className="min-w-0">
-            <h3 className="font-bold text-gray-800">{loggedInUser.name}</h3>
-            <p className="truncate text-sm text-gray-500">
-              {loggedInUser.email}
+            <p className="np-hero-description">
+              Every lost item has a story. Share the details with your campus
+              community and let someone help bring it back home.
             </p>
-            <p className="mt-1 text-xs font-medium text-blue-600">
-              {loggedInUser.collegeId}
-            </p>
+
+            <div className="np-hero-features">
+              <div>
+                <FaShieldAlt />
+                <span>Campus community</span>
+              </div>
+              <div>
+                <FaSearch />
+                <span>Easy discovery</span>
+              </div>
+              <div>
+                <FaHandHoldingHeart />
+                <span>Help each other</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="np-hero-visual">
+            <div className="np-orbit np-orbit-one"></div>
+            <div className="np-orbit np-orbit-two"></div>
+
+            <div className="np-visual-card">
+              <div className="np-visual-icon">
+                <FaBoxOpen />
+              </div>
+              <span className="np-visual-small">
+                A little help goes a long way
+              </span>
+              <h3>Someone might be looking for this.</h3>
+              <div className="np-visual-status">
+                <span></span>
+                Make someone's day better
+              </div>
+            </div>
+
+            <div className="np-floating-icon np-floating-one">
+              <FaSearch />
+            </div>
+            <div className="np-floating-icon np-floating-two">
+              <FaHandHoldingHeart />
+            </div>
+          </div>
+        </section>
+
+        {/* Form heading */}
+        <div className="np-form-heading">
+          <div>
+            <span className="np-section-eyebrow">CREATE A LISTING</span>
+            <h2>Share your item</h2>
+            <p>Fill in the details below to reach your campus community.</p>
+          </div>
+
+          <div className="np-required-note">
+            <span>*</span> Required fields
           </div>
         </div>
 
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-7 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm md:p-8"
-        >
-          {/* Post Type */}
-          <div>
-            <label className={labelClass}>What do you want to post?</label>
+        <form onSubmit={handleSubmit} className="np-form">
+          {/* Post type */}
+          <section className="np-card np-type-card">
+            <div className="np-card-heading">
+              <div className="np-heading-icon">
+                <FaTag />
+              </div>
+              <div>
+                <h3>What happened?</h3>
+                <p>Choose the type of post you want to create.</p>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="np-type-options">
               <button
                 type="button"
                 onClick={() =>
                   setFormData((prev) => ({ ...prev, type: "lost" }))
                 }
-                className={`rounded-xl border-2 p-4 text-left transition ${
-                  formData.type === "lost"
-                    ? "border-red-500 bg-red-50"
-                    : "border-gray-100 hover:border-gray-300"
+                className={`np-type-option ${
+                  formData.type === "lost" ? "active lost-active" : ""
                 }`}
               >
-                <span className="text-2xl">🔍</span>
-                <h3 className="mt-2 font-bold text-gray-800">
-                  I Lost Something
-                </h3>
-                <p className="mt-1 text-xs text-gray-500">
-                  Report a missing item
-                </p>
+                <div className="np-type-icon lost-icon">
+                  <FaSearch />
+                </div>
+                <div className="np-type-text">
+                  <strong>I lost something</strong>
+                  <span>Help me find my missing item</span>
+                </div>
+                <span className="np-radio">
+                  {formData.type === "lost" && <span />}
+                </span>
               </button>
 
               <button
@@ -192,221 +287,266 @@ const NewPost = () => {
                 onClick={() =>
                   setFormData((prev) => ({ ...prev, type: "found" }))
                 }
-                className={`rounded-xl border-2 p-4 text-left transition ${
-                  formData.type === "found"
-                    ? "border-green-500 bg-green-50"
-                    : "border-gray-100 hover:border-gray-300"
+                className={`np-type-option ${
+                  formData.type === "found" ? "active found-active" : ""
                 }`}
               >
-                <span className="text-2xl">🎁</span>
-                <h3 className="mt-2 font-bold text-gray-800">
-                  I Found Something
-                </h3>
-                <p className="mt-1 text-xs text-gray-500">
-                  Report an item you found
-                </p>
+                <div className="np-type-icon found-icon">
+                  <FaHandHoldingHeart />
+                </div>
+                <div className="np-type-text">
+                  <strong>I found something</strong>
+                  <span>Help return an item to its owner</span>
+                </div>
+                <span className="np-radio">
+                  {formData.type === "found" && <span />}
+                </span>
               </button>
             </div>
-          </div>
+          </section>
 
-          <div className="border-t border-gray-100"></div>
-
-          {/* Item Information */}
-          <div>
-            <h2 className="mb-5 text-lg font-bold text-gray-900">
-              Item Information
-            </h2>
-
-            <div className="grid gap-5 md:grid-cols-2">
+          {/* Item information */}
+          <section className="np-card">
+            <div className="np-card-heading">
+              <div className="np-heading-icon">
+                <FaBoxOpen />
+              </div>
               <div>
-                <label className={labelClass}>Item Name *</label>
+                <h3>Item information</h3>
+                <p>Tell us what the item looks like.</p>
+              </div>
+              <span className="np-step">01</span>
+            </div>
+
+            <div className="np-field-grid">
+              <div className="np-field np-full">
+                <label htmlFor="itemName">
+                  Item name <span>*</span>
+                </label>
                 <input
+                  id="itemName"
                   type="text"
                   name="itemName"
                   value={formData.itemName}
                   onChange={handleChange}
-                  placeholder="e.g. Scientific Calculator"
-                  className={inputClass}
+                  placeholder="e.g. Black leather wallet"
                   required
                 />
               </div>
 
-              <div>
-                <label className={labelClass}>Category *</label>
+              <div className="np-field np-full">
+                <label htmlFor="category">
+                  Category <span>*</span>
+                </label>
                 <select
+                  id="category"
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  className={inputClass}
                   required
                 >
-                  <option value="">Select a category</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="gadgets">Gadgets</option>
-                  <option value="accessories">Accessories</option>
-                  <option value="stationery">Stationery</option>
-                  <option value="books">Books</option>
-                  <option value="clothing">Clothing</option>
-                  <option value="footwear">Footwear</option>
-                  <option value="id-cards">ID Cards</option>
-                  <option value="wallets-purses">Wallets / Purses</option>
-                  <option value="keys">Keys</option>
-                  <option value="other">Other</option>
+                  <option value="">Choose an item category</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category
+                        .split("-")
+                        .map(
+                          (word) =>
+                            word.charAt(0).toUpperCase() + word.slice(1),
+                        )
+                        .join(" ")}
+                    </option>
+                  ))}
                 </select>
               </div>
-            </div>
 
-            <div className="mt-5">
-              <label className={labelClass}>Description *</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                rows="4"
-                placeholder="Describe the item and provide any useful details..."
-                className={inputClass}
-                required
-              />
-            </div>
-
-            <div className="mt-5">
-              <label className={labelClass}>Image URLs</label>
-              <textarea
-                name="images"
-                value={formData.images}
-                onChange={handleChange}
-                rows="2"
-                placeholder="Paste image URLs (one URL per line or separated by commas)"
-                className={inputClass}
-              />
-              <p className="mt-2 text-xs text-gray-400">
-                You can add multiple image URLs. Leave empty if you don't have
-                an image.
-              </p>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100"></div>
-
-          {/* Location & Date */}
-          <div>
-            <h2 className="mb-5 text-lg font-bold text-gray-900">
-              Location & Date
-            </h2>
-
-            <div className="grid gap-5 md:grid-cols-2">
-              <div>
-                <label className={labelClass}>Campus Area *</label>
-                <input
-                  type="text"
-                  name="area"
-                  value={formData.area}
+              <div className="np-field np-full">
+                <label htmlFor="description">Description</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
                   onChange={handleChange}
-                  placeholder="e.g. Academic Building"
-                  className={inputClass}
-                  required
+                  rows="4"
+                  placeholder="Describe the item, its color, brand, condition, or anything that can help identify it..."
                 />
+                <span className="np-field-hint">
+                  More details can make it easier to identify the item.
+                </span>
               </div>
+            </div>
+          </section>
 
-              <div>
-                <label className={labelClass}>Specific Location</label>
-                <input
-                  type="text"
-                  name="specificLocation"
-                  value={formData.specificLocation}
-                  onChange={handleChange}
-                  placeholder="e.g. CSE Department, 3rd Floor"
-                  className={inputClass}
-                />
+          {/* Images */}
+          <section className="np-card">
+            <div className="np-card-heading">
+              <div className="np-heading-icon">
+                <FaSearch />
               </div>
-
               <div>
-                <label className={labelClass}>
-                  {formData.type === "lost" ? "Lost Date" : "Found Date"} *
+                <h3>Item photos</h3>
+                <p>A picture can make all the difference.</p>
+              </div>
+              <span className="np-step">02</span>
+            </div>
+
+            <ImageUploader images={formData.images} setImages={updateImages} />
+          </section>
+
+          {/* Location and time */}
+          <section className="np-card">
+            <div className="np-card-heading">
+              <div className="np-heading-icon">
+                <FaMapMarkerAlt />
+              </div>
+              <div>
+                <h3>Where & when?</h3>
+                <p>Help others understand where and when it happened.</p>
+              </div>
+              <span className="np-step">03</span>
+            </div>
+
+            <div className="np-field-grid">
+              <div className="np-field">
+                <label htmlFor="area">
+                  <FaMapMarkerAlt /> Campus area
                 </label>
                 <input
+                  id="area"
+                  type="text"
+                  name="area"
+                  value={formData.location.area}
+                  onChange={handleChange}
+                  placeholder="e.g. Academic Building"
+                />
+              </div>
+
+              <div className="np-field">
+                <label htmlFor="specificLocation">Specific location</label>
+                <input
+                  id="specificLocation"
+                  type="text"
+                  name="specificLocation"
+                  value={formData.location.specificLocation}
+                  onChange={handleChange}
+                  placeholder="e.g. Room 204, 2nd floor"
+                />
+              </div>
+
+              <div className="np-field">
+                <label htmlFor="date">
+                  <FaCalendarAlt /> Date
+                </label>
+                <input
+                  id="date"
                   type="date"
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
-                  max={localDate}
-                  className={inputClass}
-                  required
                 />
               </div>
 
-              <div>
-                <label className={labelClass}>Approximate Time</label>
+              <div className="np-field">
+                <label htmlFor="approximateTime">
+                  <FaClock /> Approximate time
+                </label>
                 <input
+                  id="approximateTime"
                   type="time"
                   name="approximateTime"
                   value={formData.approximateTime}
                   onChange={handleChange}
-                  className={inputClass}
                 />
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="border-t border-gray-100"></div>
-
-          {/* Additional Information */}
-          <div>
-            <h2 className="mb-5 text-lg font-bold text-gray-900">
-              Additional Information
-            </h2>
-
-            <div>
-              <label className={labelClass}>Identifying Features</label>
-              <textarea
-                name="identifyingFeatures"
-                value={formData.identifyingFeatures}
-                onChange={handleChange}
-                rows="3"
-                placeholder="Mention unique marks, scratches, stickers, or other details..."
-                className={inputClass}
-              />
-              <p className="mt-2 text-xs text-amber-600">
-                Keep unique identifying details private. They can help verify
-                the real owner later.
-              </p>
+          {/* Additional details */}
+          <section className="np-card">
+            <div className="np-card-heading">
+              <div className="np-heading-icon">
+                <FaRegLightbulb />
+              </div>
+              <div>
+                <h3>Additional details</h3>
+                <p>Any special information that might help.</p>
+              </div>
+              <span className="np-step">04</span>
             </div>
 
-            <div className="mt-5">
-              <label className={labelClass}>Contact Number *</label>
-              <input
-                type="tel"
-                name="contactPreference"
-                value={formData.contactPreference}
-                onChange={handleChange}
-                placeholder="01XXXXXXXXX"
-                className={inputClass}
-                required
-              />
-            </div>
-          </div>
+            <div className="np-field-grid">
+              <div className="np-field np-full">
+                <label htmlFor="identifyingFeatures">
+                  Identifying features
+                </label>
+                <textarea
+                  id="identifyingFeatures"
+                  name="identifyingFeatures"
+                  value={formData.identifyingFeatures}
+                  onChange={handleChange}
+                  rows="3"
+                  placeholder="Any scratches, stickers, unique marks, initials, or special features..."
+                />
+              </div>
 
-          {/* Submit */}
-          <div className="border-t border-gray-100 pt-6">
+              <div className="np-field np-full">
+                <label htmlFor="contactPreference">
+                  <FaPhoneAlt /> Contact number
+                </label>
+                <input
+                  id="contactPreference"
+                  type="tel"
+                  name="contactPreference"
+                  value={
+                    formData.contactPreference ?? loggedInUser?.phone ?? ""
+                  }
+                  onChange={handleChange}
+                  placeholder="Enter your contact number"
+                />
+                <span className="np-field-hint">
+                  People can use this number to contact you about the item.
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Submit section */}
+          <section className="np-submit-card">
+            <div className="np-submit-info">
+              <div className="np-submit-check">
+                <FaCheckCircle />
+              </div>
+              <div>
+                <h3>Ready to publish?</h3>
+                <p>
+                  Your post will be shared with the LostHub campus community.
+                </p>
+              </div>
+            </div>
+
             <button
               type="submit"
-              disabled={createPostMutation.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3.5 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={mutation.isPending}
+              className="np-submit-button"
             >
-              {createPostMutation.isPending ? (
+              {mutation.isPending ? (
                 <>
-                  <span className="loading loading-spinner loading-sm"></span>
+                  <span className="np-spinner"></span>
                   Publishing...
                 </>
               ) : (
-                "Publish Post"
+                <>
+                  Publish post
+                  <FaArrowRight />
+                </>
               )}
             </button>
+          </section>
 
-            <p className="mt-3 text-center text-xs text-gray-400">
-              Please make sure all the information is correct before publishing.
-            </p>
-          </div>
+          <p className="np-footer-note">
+            <FaShieldAlt />
+            Please provide accurate information to help your campus community.
+          </p>
         </form>
       </div>
     </div>

@@ -49,12 +49,12 @@ const floatingCards = [
 
 const Hero = () => {
   return (
-    <section className="relative isolate overflow-hidden bg-gradient-to-br from-slate-50 via-white to-indigo-50">
+    <section className="relative isolate overflow-hidden bg-linear-to-br from-slate-50 via-white to-indigo-50">
       {/* Background Decorations */}
       <div className="absolute -left-32 top-10 -z-10 h-80 w-80 rounded-full bg-blue-200/30 blur-3xl" />
       <div className="absolute -right-32 bottom-0 -z-10 h-96 w-96 rounded-full bg-indigo-200/40 blur-3xl" />
 
-      <div className="mx-auto grid min-h-[680px] max-w-7xl items-center gap-14 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:gap-10 lg:px-10">
+      <div className="mx-auto grid min-h-170 max-w-7xl items-center gap-14 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:gap-10 lg:px-10">
         {/* Left Content */}
         <motion.div
           initial={{ opacity: 0, y: 35 }}

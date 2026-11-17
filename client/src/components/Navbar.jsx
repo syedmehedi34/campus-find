@@ -71,6 +71,11 @@ const Navbar = () => {
       icon: Info,
     },
     {
+      name: "All Posts",
+      path: "/posts",
+      icon: Info,
+    },
+    {
       name: "New Post",
       path: "/create-post",
       icon: Search,

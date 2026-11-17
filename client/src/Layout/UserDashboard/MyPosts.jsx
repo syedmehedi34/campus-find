@@ -1,26 +1,25 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Swal from "sweetalert2";
 import {
   FaSearch,
+  FaBoxOpen,
   FaMapMarkerAlt,
   FaCalendarAlt,
-  FaTag,
+  FaClock,
+  FaEdit,
   FaTrash,
-  FaChevronLeft,
-  FaChevronRight,
+  FaTimes,
+  FaSave,
   FaImage,
-  FaBoxOpen,
-  FaHandHoldingHeart,
-  FaFilter,
-  FaPlus,
+  FaPhoneAlt,
+  FaInfoCircle,
 } from "react-icons/fa";
-import { Link } from "react-router";
+import Swal from "sweetalert2";
 
 import useUserData from "../../hooks/useUserData";
 import useAxiosPublic from "../../hooks/useAxiosPublic";
 
-const categories = [
+const CATEGORIES = [
   "electronics",
   "gadgets",
   "accessories",
@@ -34,27 +33,7 @@ const categories = [
   "other",
 ];
 
-const LIMIT = 12;
-
-const formatDate = (date) => {
-  if (!date) return "Not specified";
-
-  const parsedDate = new Date(date);
-
-  if (Number.isNaN(parsedDate.getTime())) return date;
-
-  return parsedDate.toLocaleDateString("en-US", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
-
-const formatCategory = (category = "") =>
-  category
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+const STATUS_OPTIONS = ["active", "inactive", "resolved"];
 
 const MyPosts = () => {
   const { loggedInUser } = useUserData();
@@ -62,575 +41,871 @@ const MyPosts = () => {
   const queryClient = useQueryClient();
 
   const [activeType, setActiveType] = useState("all");
-  const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
 
-  // Fetch logged-in user's posts
-  const { data, isLoading, isError, error, isFetching, refetch } = useQuery({
-    queryKey: [
-      "my-items",
-      loggedInUser?.userId,
-      activeType,
-      category,
-      search,
-      page,
-    ],
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [editMode, setEditMode] = useState(false);
 
+  const [editForm, setEditForm] = useState({});
+  const [imageText, setImageText] = useState("");
+  const [newStatus, setNewStatus] = useState("");
+
+  // Fetch My Posts
+  const {
+    data: postsData,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["my-items", loggedInUser?.userId, activeType, search],
+    enabled: !!loggedInUser?.userId,
     queryFn: async () => {
-      const response = await axiosPublic.get("/items/my-posts", {
+      const res = await axiosPublic.get("/items/my-posts", {
         params: {
           userId: loggedInUser.userId,
           type: activeType,
-          category: category || undefined,
-          search: search.trim() || undefined,
-          page,
-          limit: LIMIT,
+          search,
         },
       });
 
-      return response.data;
+      return res.data;
+    },
+  });
+
+  const posts = postsData?.items || [];
+
+  // Update post
+  const updateMutation = useMutation({
+    mutationFn: async (updatedData) => {
+      const res = await axiosPublic.patch(`/items/${selectedItem._id}`, {
+        ...updatedData,
+        userId: loggedInUser.userId,
+      });
+
+      return res.data;
     },
 
-    enabled: !!loggedInUser?.userId,
-    placeholderData: (previousData) => previousData,
+    onSuccess: () => {
+      Swal.fire({
+        icon: "success",
+        title: "Post Updated!",
+        text: "Your post has been updated successfully.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      setSelectedItem((prev) => ({
+        ...prev,
+        ...editForm,
+        images: imageText
+          .split("\n")
+          .map((url) => url.trim())
+          .filter(Boolean),
+        location: {
+          area: editForm.area,
+          specificLocation: editForm.specificLocation,
+        },
+      }));
+
+      setEditMode(false);
+      queryClient.invalidateQueries({ queryKey: ["my-items"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+    },
+
+    onError: () => {
+      Swal.fire("Error!", "Failed to update your post.", "error");
+    },
   });
 
   // Delete post
   const deleteMutation = useMutation({
     mutationFn: async (itemId) => {
-      const response = await axiosPublic.delete(`/items/${itemId}`, {
+      const res = await axiosPublic.delete(`/items/${itemId}`, {
         data: {
           userId: loggedInUser.userId,
         },
       });
 
-      return response.data;
+      return res.data;
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["my-items"],
-      });
-
-      queryClient.invalidateQueries({
-        queryKey: ["items"],
-      });
-
       Swal.fire({
         icon: "success",
-        title: "Post deleted",
-        text: "Your post has been deleted successfully.",
-        confirmButtonColor: "#059669",
+        title: "Deleted!",
+        text: "Your post has been deleted.",
+        timer: 1500,
+        showConfirmButton: false,
       });
+
+      setSelectedItem(null);
+      queryClient.invalidateQueries({ queryKey: ["my-items"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
     },
 
-    onError: (error) => {
-      Swal.fire({
-        icon: "error",
-        title: "Delete failed",
-        text:
-          error?.response?.data?.message ||
-          "Something went wrong. Please try again.",
-        confirmButtonColor: "#059669",
-      });
+    onError: () => {
+      Swal.fire("Error!", "Failed to delete your post.", "error");
     },
   });
 
-  const items = data?.items || [];
-  const totalItems = data?.totalItems || 0;
-  const totalPages = data?.totalPages || 0;
+  // Change post status
+  const statusMutation = useMutation({
+    mutationFn: async ({ itemId, postStatus }) => {
+      const res = await axiosPublic.patch(`/items/${itemId}/status`, {
+        userId: loggedInUser.userId,
+        postStatus,
+      });
 
-  const handleTypeChange = (type) => {
-    setActiveType(type);
-    setPage(1);
+      return res.data;
+    },
+
+    onSuccess: () => {
+      setSelectedItem((prev) => ({
+        ...prev,
+        postStatus: newStatus,
+      }));
+
+      Swal.fire({
+        icon: "success",
+        title: "Status Updated!",
+        timer: 1200,
+        showConfirmButton: false,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["my-items"] });
+      queryClient.invalidateQueries({ queryKey: ["items"] });
+    },
+
+    onError: () => {
+      Swal.fire("Error!", "Failed to update status.", "error");
+    },
+  });
+
+  // Open modal
+  const openModal = (item) => {
+    setSelectedItem(item);
+    setEditMode(false);
+    setNewStatus(item.postStatus || "active");
+
+    setEditForm({
+      type: item.type || "lost",
+      itemName: item.itemName || "",
+      category: item.category || "other",
+      description: item.description || "",
+      area: item.location?.area || "",
+      specificLocation: item.location?.specificLocation || "",
+      date: item.date || "",
+      approximateTime: item.approximateTime || "",
+      identifyingFeatures: item.identifyingFeatures || "",
+      contactPreference: item.contactPreference || "",
+    });
+
+    setImageText((item.images || []).join("\n"));
   };
 
-  const handleCategoryChange = (e) => {
-    setCategory(e.target.value);
-    setPage(1);
+  // Edit input handler
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+
+    setEditForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
-  const handleSearchChange = (e) => {
-    setSearch(e.target.value);
-    setPage(1);
+  // Save changes
+  const handleUpdate = (e) => {
+    e.preventDefault();
+
+    const images = imageText
+      .split("\n")
+      .map((url) => url.trim())
+      .filter(Boolean);
+
+    updateMutation.mutate({
+      type: editForm.type,
+      itemName: editForm.itemName,
+      category: editForm.category,
+      description: editForm.description,
+      images,
+      location: {
+        area: editForm.area,
+        specificLocation: editForm.specificLocation,
+      },
+      date: editForm.date,
+      approximateTime: editForm.approximateTime,
+      identifyingFeatures: editForm.identifyingFeatures,
+      contactPreference: editForm.contactPreference,
+    });
   };
 
-  const handleDelete = async (item) => {
+  // Delete confirmation
+  const handleDelete = async () => {
     const result = await Swal.fire({
-      title: "Delete this post?",
-      text: `Are you sure you want to delete "${item.itemName}"? This action cannot be undone.`,
+      title: "Are you sure?",
+      text: "This post will be removed from your posts.",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonText: "Yes, delete it",
-      cancelButtonText: "Cancel",
       confirmButtonColor: "#e11d48",
       cancelButtonColor: "#64748b",
-      reverseButtons: true,
+      confirmButtonText: "Yes, delete it!",
     });
 
     if (result.isConfirmed) {
-      deleteMutation.mutate(item._id);
+      deleteMutation.mutate(selectedItem._id);
     }
   };
 
-  const clearFilters = () => {
-    setActiveType("all");
-    setCategory("");
-    setSearch("");
-    setPage(1);
+  // Status update
+  const handleStatusUpdate = () => {
+    if (newStatus === selectedItem.postStatus) {
+      return Swal.fire(
+        "No Changes",
+        "Your status is already the same.",
+        "info",
+      );
+    }
+
+    statusMutation.mutate({
+      itemId: selectedItem._id,
+      postStatus: newStatus,
+    });
   };
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 bg-[#f5f8f6]">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-500" />
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case "active":
+        return "bg-emerald-100 text-emerald-700";
 
-        <p className="text-sm font-medium text-slate-500">
-          Loading your posts...
-        </p>
-      </div>
-    );
-  }
+      case "inactive":
+        return "bg-gray-100 text-gray-600";
+
+      case "resolved":
+        return "bg-blue-100 text-blue-700";
+
+      default:
+        return "bg-gray-100 text-gray-600";
+    }
+  };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5f8f6] px-4 py-10 text-slate-800 sm:px-6 lg:py-14">
-      {/* Background decoration */}
-      <div className="pointer-events-none absolute -left-40 top-20 h-96 w-96 rounded-full bg-emerald-300/20 blur-[110px]" />
+    <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
+      <div className="mx-auto max-w-7xl">
+        {/* Page Heading */}
+        <div className="mb-8">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-emerald-600">
+            Manage Your Posts
+          </p>
 
-      <div className="pointer-events-none absolute -right-40 top-[600px] h-96 w-96 rounded-full bg-teal-300/15 blur-[110px]" />
+          <h1 className="text-3xl font-extrabold text-slate-800 md:text-4xl">
+            My Posts
+          </h1>
 
-      <div className="relative mx-auto max-w-7xl">
-        {/* ================= HERO ================= */}
-        <section className="relative mb-10 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#102b27] via-[#16463a] to-[#087d5d] px-6 py-10 shadow-xl shadow-emerald-950/10 sm:px-10 sm:py-12">
-          {/* Decorative circles */}
-          <div className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full border border-white/10" />
-
-          <div className="pointer-events-none absolute -right-5 -top-20 h-64 w-64 rounded-full border border-white/10" />
-
-          <div className="pointer-events-none absolute bottom-0 right-0 h-72 w-72 rounded-full bg-emerald-300/10 blur-3xl" />
-
-          <div className="relative z-10 max-w-2xl">
-            <div className="mb-7 flex items-center gap-2 text-[11px] font-extrabold tracking-[2px] text-emerald-200">
-              <span>LOSTHUB</span>
-              <span className="text-white/40">/</span>
-              <span className="text-white/70">MY POSTS</span>
-            </div>
-
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-[11px] font-semibold text-emerald-100">
-              <FaHandHoldingHeart />
-              YOUR CAMPUS CONTRIBUTION
-            </div>
-
-            <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
-              Your posts,
-              <br />
-              <span className="text-emerald-300">your contribution.</span>
-            </h1>
-
-            <p className="mt-5 max-w-xl text-sm leading-7 text-white/70 sm:text-base">
-              Manage all the lost and found posts you have shared with your
-              campus community. Keep track of your posts and help belongings
-              find their way home.
-            </p>
-
-            <Link
-              to="/user-dashboard/create-new-post"
-              className="mt-7 inline-flex items-center gap-2 rounded-xl bg-emerald-400 px-5 py-3 text-xs font-extrabold text-[#10372d] shadow-lg shadow-black/10 transition hover:-translate-y-1 hover:bg-emerald-300"
-            >
-              <FaPlus />
-              Create New Post
-            </Link>
-          </div>
-
-          {/* Hero visual */}
-          <div className="absolute bottom-5 right-12 hidden h-48 w-48 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] lg:flex">
-            <div className="flex h-36 w-36 items-center justify-center rounded-full border border-dashed border-emerald-200/30">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/20 bg-white/10 text-5xl text-emerald-200 shadow-2xl backdrop-blur-xl">
-                <FaBoxOpen />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= PAGE HEADING ================= */}
-        <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <span className="text-[10px] font-extrabold tracking-[2px] text-emerald-600">
-              YOUR ACTIVITY
-            </span>
-
-            <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[#17342d] sm:text-3xl">
-              Manage my posts
-            </h2>
-
-            <p className="mt-2 text-sm text-slate-500">
-              View, search and manage the items you have posted.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 self-start rounded-xl border border-emerald-100 bg-white px-4 py-3 shadow-sm sm:self-auto">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
-              <FaBoxOpen />
-            </div>
-
-            <div>
-              <p className="text-lg font-extrabold leading-5 text-[#17342d]">
-                {totalItems}
-              </p>
-
-              <p className="text-[10px] font-medium text-slate-400">
-                Your total posts
-              </p>
-            </div>
-          </div>
+          <p className="mt-2 text-slate-500">
+            View, edit and manage all your lost and found posts.
+          </p>
         </div>
 
-        {/* ================= FILTER SECTION ================= */}
-        <section className="mb-8 rounded-2xl border border-[#e8efeb] bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 className="text-sm font-extrabold text-[#29443a]">
-                Filter your posts
-              </h3>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Find a specific lost or found item.
-              </p>
-            </div>
-
-            <div className="flex w-full rounded-xl bg-[#f3f8f5] p-1 sm:w-auto">
-              {[
-                { label: "All Posts", value: "all" },
-                { label: "Lost Items", value: "lost" },
-                { label: "Found Items", value: "found" },
-              ].map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => handleTypeChange(tab.value)}
-                  className={`flex-1 rounded-lg px-3 py-3 text-xs font-bold transition duration-200 sm:flex-none sm:px-5 ${
-                    activeType === tab.value
-                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/15"
-                      : "text-slate-500 hover:bg-white hover:text-emerald-700"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-[1fr_250px]">
-            {/* Search */}
-            <div className="relative">
-              <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-emerald-600" />
-
-              <input
-                type="text"
-                value={search}
-                onChange={handleSearchChange}
-                placeholder="Search your item name..."
-                className="h-12 w-full rounded-xl border border-[#e5ece8] bg-[#fbfdfc] pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-              />
-            </div>
-
-            {/* Category */}
-            <div className="relative">
-              <FaFilter className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-emerald-600" />
-
-              <select
-                value={category}
-                onChange={handleCategoryChange}
-                className="h-12 w-full appearance-none rounded-xl border border-[#e5ece8] bg-[#fbfdfc] pl-10 pr-4 text-xs font-semibold text-slate-600 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
-              >
-                <option value="">All Categories</option>
-
-                {categories.map((itemCategory) => (
-                  <option key={itemCategory} value={itemCategory}>
-                    {formatCategory(itemCategory)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </section>
-
-        {/* ================= RESULTS HEADING ================= */}
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-extrabold text-[#244238]">
-              {activeType === "all"
-                ? "All my posts"
-                : activeType === "lost"
-                  ? "My lost posts"
-                  : "My found posts"}
-            </h3>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Showing {items.length} of {totalItems} posts
-            </p>
-          </div>
-
-          {isFetching && (
-            <div className="flex items-center gap-2 text-xs font-medium text-emerald-600">
-              <span className="h-3 w-3 animate-spin rounded-full border-2 border-emerald-200 border-t-emerald-600" />
-              Updating...
-            </div>
-          )}
-        </div>
-
-        {/* ================= ERROR STATE ================= */}
-        {isError && (
-          <div className="rounded-2xl border border-rose-100 bg-white px-6 py-12 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-2xl text-rose-500">
-              <FaBoxOpen />
-            </div>
-
-            <h3 className="mt-4 font-bold text-slate-700">
-              Couldn't load your posts
-            </h3>
-
-            <p className="mt-2 text-sm text-slate-400">
-              {error?.response?.data?.message ||
-                "Something went wrong. Please try again."}
-            </p>
-
-            <button
-              onClick={() => refetch()}
-              className="mt-5 rounded-xl bg-emerald-600 px-6 py-3 text-xs font-bold text-white transition hover:bg-emerald-700"
-            >
-              Try again
-            </button>
-          </div>
-        )}
-
-        {/* ================= EMPTY STATE ================= */}
-        {!isError && items.length === 0 && (
-          <div className="rounded-2xl border border-[#e8efeb] bg-white px-6 py-16 text-center shadow-sm">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-4xl text-emerald-500">
-              <FaBoxOpen />
-            </div>
-
-            <h3 className="mt-6 text-xl font-extrabold text-[#29443a]">
-              {search || category || activeType !== "all"
-                ? "No matching posts"
-                : "You haven't posted anything yet"}
-            </h3>
-
-            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-400">
-              {search || category || activeType !== "all"
-                ? "We couldn't find any of your posts matching these filters. Try changing your search."
-                : "Share a lost or found item with your campus community. Your post might help someone find their belongings."}
-            </p>
-
-            {search || category || activeType !== "all" ? (
+        {/* Filters */}
+        <div className="mb-7 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+          {/* Type Filter */}
+          <div className="flex flex-wrap gap-2">
+            {["all", "lost", "found"].map((type) => (
               <button
-                onClick={clearFilters}
-                className="mt-6 rounded-xl bg-emerald-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700"
+                key={type}
+                onClick={() => setActiveType(type)}
+                className={`rounded-xl px-5 py-2.5 text-sm font-semibold capitalize transition ${
+                  activeType === type
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-100"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
               >
-                Clear all filters
+                {type === "all" ? "All Posts" : type}
               </button>
-            ) : (
-              <Link
-                to="/user-dashboard/create-new-post"
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700"
-              >
-                <FaPlus />
-                Create your first post
-              </Link>
-            )}
+            ))}
           </div>
-        )}
 
-        {/* ================= ITEM CARDS ================= */}
-        {!isError && items.length > 0 && (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {items.map((item) => (
-              <article
-                key={item._id}
-                className="group overflow-hidden rounded-2xl border border-[#e8efeb] bg-white shadow-sm transition duration-300 hover:-translate-y-1.5 hover:border-emerald-200 hover:shadow-xl hover:shadow-emerald-900/[0.07]"
-              >
-                {/* Image */}
-                <div className="relative h-52 overflow-hidden bg-[#edf5f0]">
-                  {item.images?.length > 0 ? (
-                    <img
-                      src={item.images[0]}
-                      alt={item.itemName}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-5xl text-emerald-300">
-                      <FaImage />
-                    </div>
-                  )}
+          {/* Search */}
+          <div className="relative w-full md:max-w-sm">
+            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
 
-                  {/* Lost / Found badge */}
-                  <div
-                    className={`absolute left-3 top-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-wide shadow-sm ${
-                      item.type === "lost"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-emerald-100 text-emerald-700"
-                    }`}
-                  >
-                    {item.type}
-                  </div>
+            <input
+              type="text"
+              placeholder="Search your posts..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-emerald-500 focus:bg-white"
+            />
+          </div>
+        </div>
 
-                  {/* Image count */}
-                  {item.images?.length > 1 && (
-                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
-                      <FaImage />
-                      {item.images.length} photos
-                    </div>
-                  )}
-                </div>
-
-                {/* Card content */}
-                <div className="p-4">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <span className="rounded-lg bg-emerald-50 px-2.5 py-1.5 text-[10px] font-bold text-emerald-700">
-                      {formatCategory(item.category)}
-                    </span>
-
-                    <span className="text-[10px] text-slate-400">
-                      {formatDate(item.date)}
-                    </span>
-                  </div>
-
-                  <h3 className="truncate text-base font-extrabold text-[#244238]">
-                    {item.itemName}
-                  </h3>
-
-                  <p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-slate-400">
-                    {item.description || "No description provided."}
-                  </p>
-
-                  {/* Location */}
-                  <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
-                    <FaMapMarkerAlt className="shrink-0 text-emerald-500" />
-
-                    <span className="truncate">
-                      {item.location?.area || "Location not specified"}
-                      {item.location?.specificLocation
-                        ? `, ${item.location.specificLocation}`
-                        : ""}
-                    </span>
-                  </div>
-
-                  {/* Post information */}
-                  <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] text-slate-400">
-                        <FaCalendarAlt className="mr-1 inline text-emerald-500" />
-                        Posted {formatDate(item.createdAt)}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[9px] font-bold capitalize ${
-                          item.postStatus === "active"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {item.postStatus || "Unknown"}
-                      </span>
-
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[9px] font-bold capitalize ${
-                          item.moderationStatus === "approved"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : item.moderationStatus === "pending"
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-rose-50 text-rose-700"
-                        }`}
-                      >
-                        {item.moderationStatus || "Unknown"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Delete button */}
-                  <button
-                    onClick={() => handleDelete(item)}
-                    disabled={deleteMutation.isPending}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-rose-100 bg-rose-50 py-3 text-xs font-bold text-rose-600 transition hover:border-rose-200 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <FaTrash />
-                    Delete Post
-                  </button>
-                </div>
-              </article>
+        {/* Loading */}
+        {isLoading && (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((item) => (
+              <div
+                key={item}
+                className="h-80 animate-pulse rounded-2xl bg-slate-200"
+              />
             ))}
           </div>
         )}
 
-        {/* ================= PAGINATION ================= */}
-        {!isError && totalPages > 1 && (
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
-            <button
-              disabled={page <= 1}
-              onClick={() => {
-                setPage((prev) => Math.max(1, prev - 1));
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="flex h-10 items-center gap-2 rounded-xl border border-[#e5ece8] bg-white px-4 text-xs font-bold text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <FaChevronLeft />
-              Previous
-            </button>
-
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(
-                (number) =>
-                  number === 1 ||
-                  number === totalPages ||
-                  Math.abs(number - page) <= 1,
-              )
-              .map((number, index, array) => (
-                <div key={number} className="flex items-center gap-2">
-                  {index > 0 && array[index - 1] !== number - 1 && (
-                    <span className="px-1 text-slate-400">...</span>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setPage(number);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    className={`h-10 min-w-10 rounded-xl px-3 text-xs font-bold transition ${
-                      page === number
-                        ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
-                        : "border border-[#e5ece8] bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
-                    }`}
-                  >
-                    {number}
-                  </button>
-                </div>
-              ))}
-
-            <button
-              disabled={page >= totalPages}
-              onClick={() => {
-                setPage((prev) => Math.min(totalPages, prev + 1));
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="flex h-10 items-center gap-2 rounded-xl border border-[#e5ece8] bg-white px-4 text-xs font-bold text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next
-              <FaChevronRight />
-            </button>
+        {/* Error */}
+        {isError && (
+          <div className="rounded-2xl bg-red-50 p-8 text-center text-red-600">
+            Failed to load your posts. Please try again.
           </div>
         )}
 
-        {/* Footer note */}
-        <div className="mt-12 flex flex-wrap items-center justify-center gap-2 text-center text-[11px] text-slate-400">
-          <FaHandHoldingHeart className="text-emerald-500" />
-          Thank you for making your campus community better.
-        </div>
+        {/* Posts */}
+        {!isLoading && !isError && posts.length > 0 && (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {posts.map((item) => {
+              const isLost = item.type === "lost";
+
+              return (
+                <div
+                  key={item._id}
+                  onClick={() => openModal(item)}
+                  className={`group cursor-pointer overflow-hidden rounded-2xl border shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl ${
+                    isLost
+                      ? "border-rose-100 bg-rose-50/70 hover:border-rose-200"
+                      : "border-emerald-100 bg-emerald-50/70 hover:border-emerald-200"
+                  }`}
+                >
+                  {/* Image */}
+                  <div className="relative h-52 overflow-hidden bg-white/60">
+                    {item.images?.length > 0 ? (
+                      <img
+                        src={item.images[0]}
+                        alt={item.itemName}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-slate-300">
+                        <FaImage size={45} />
+                      </div>
+                    )}
+
+                    <span
+                      className={`absolute left-4 top-4 rounded-full px-4 py-1.5 text-xs font-bold uppercase ${
+                        isLost
+                          ? "bg-rose-600 text-white"
+                          : "bg-emerald-600 text-white"
+                      }`}
+                    >
+                      {item.type}
+                    </span>
+
+                    <span
+                      className={`absolute right-4 top-4 rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${getStatusStyle(
+                        item.postStatus,
+                      )}`}
+                    >
+                      {item.postStatus}
+                    </span>
+                  </div>
+
+                  {/* Card Content */}
+                  <div className="p-5">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      {item.category?.replaceAll("-", " ")}
+                    </p>
+
+                    <h3 className="mb-3 line-clamp-1 text-xl font-bold text-slate-800">
+                      {item.itemName}
+                    </h3>
+
+                    <p className="mb-4 line-clamp-2 min-h-10 text-sm leading-6 text-slate-600">
+                      {item.description}
+                    </p>
+
+                    <div className="space-y-2 border-t border-slate-200/70 pt-4 text-sm text-slate-500">
+                      <p className="flex items-center gap-2">
+                        <FaMapMarkerAlt className="shrink-0 text-emerald-600" />
+                        {item.location?.area || "Location not specified"}
+                      </p>
+
+                      <p className="flex items-center gap-2">
+                        <FaCalendarAlt className="shrink-0 text-emerald-600" />
+                        {item.date || "Date not specified"}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 flex items-center justify-between border-t border-slate-200/70 pt-4">
+                      <span className="text-xs font-medium text-slate-500">
+                        Click to manage
+                      </span>
+
+                      <span className="text-sm font-bold text-emerald-700 transition group-hover:translate-x-1">
+                        View Details →
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !isError && posts.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-5 py-16 text-center">
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+              <FaBoxOpen size={32} />
+            </div>
+
+            <h3 className="text-xl font-bold text-slate-800">No Posts Found</h3>
+
+            <p className="mt-2 text-sm text-slate-500">
+              You haven't created any posts matching your search.
+            </p>
+          </div>
+        )}
       </div>
+
+      {/* Details Modal */}
+      {selectedItem && (
+        <div
+          onClick={() => {
+            setSelectedItem(null);
+            setEditMode(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm md:p-6"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative my-auto max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl"
+          >
+            {/* Modal Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur md:px-8">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-emerald-600">
+                  Manage Your Post
+                </p>
+
+                <h2 className="mt-1 text-xl font-extrabold text-slate-800 md:text-2xl">
+                  {editMode ? "Edit Post" : "Post Details"}
+                </h2>
+              </div>
+
+              <button
+                onClick={() => {
+                  setSelectedItem(null);
+                  setEditMode(false);
+                }}
+                className="rounded-full bg-slate-100 p-3 text-slate-500 transition hover:bg-rose-100 hover:text-rose-600"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-5 md:p-8">
+              {/* Edit Form */}
+              {editMode ? (
+                <form onSubmit={handleUpdate} className="space-y-5">
+                  <div className="grid gap-5 md:grid-cols-2">
+                    {/* Type */}
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Post Type
+                      </label>
+
+                      <select
+                        name="type"
+                        value={editForm.type}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                      >
+                        <option value="lost">Lost</option>
+                        <option value="found">Found</option>
+                      </select>
+                    </div>
+
+                    {/* Category */}
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Category
+                      </label>
+
+                      <select
+                        name="category"
+                        value={editForm.category}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                      >
+                        {CATEGORIES.map((category) => (
+                          <option key={category} value={category}>
+                            {category.replaceAll("-", " ")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Item Name */}
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Item Name
+                    </label>
+
+                    <input
+                      type="text"
+                      name="itemName"
+                      value={editForm.itemName}
+                      onChange={handleEditChange}
+                      required
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Description
+                    </label>
+
+                    <textarea
+                      name="description"
+                      value={editForm.description}
+                      onChange={handleEditChange}
+                      rows="4"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Location */}
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Area
+                      </label>
+
+                      <input
+                        type="text"
+                        name="area"
+                        value={editForm.area}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Specific Location
+                      </label>
+
+                      <input
+                        type="text"
+                        name="specificLocation"
+                        value={editForm.specificLocation}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date & Time */}
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Date
+                      </label>
+
+                      <input
+                        type="date"
+                        name="date"
+                        value={editForm.date}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Approximate Time
+                      </label>
+
+                      <input
+                        type="text"
+                        name="approximateTime"
+                        value={editForm.approximateTime}
+                        onChange={handleEditChange}
+                        className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Identifying Features */}
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Identifying Features
+                    </label>
+
+                    <textarea
+                      name="identifyingFeatures"
+                      value={editForm.identifyingFeatures}
+                      onChange={handleEditChange}
+                      rows="3"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Contact Preference */}
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Contact Preference
+                    </label>
+
+                    <input
+                      type="text"
+                      name="contactPreference"
+                      value={editForm.contactPreference}
+                      onChange={handleEditChange}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* Images */}
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Image URLs
+                    </label>
+
+                    <textarea
+                      value={imageText}
+                      onChange={(e) => setImageText(e.target.value)}
+                      rows="4"
+                      placeholder="Enter one image URL per line"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-emerald-500"
+                    />
+
+                    <p className="mt-1 text-xs text-slate-400">
+                      Keep one image URL on each line.
+                    </p>
+                  </div>
+
+                  {/* Form Buttons */}
+                  <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-5">
+                    <button
+                      type="button"
+                      onClick={() => setEditMode(false)}
+                      className="rounded-xl bg-slate-100 px-5 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-200"
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={updateMutation.isPending}
+                      className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <FaSave />
+                      {updateMutation.isPending
+                        ? "Updating..."
+                        : "Save Changes"}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  {/* View Details */}
+                  <div className="grid gap-7 md:grid-cols-2">
+                    {/* Images */}
+                    <div>
+                      {selectedItem.images?.length > 0 ? (
+                        <div className="space-y-3">
+                          <img
+                            src={selectedItem.images[0]}
+                            alt={selectedItem.itemName}
+                            className="h-72 w-full rounded-2xl bg-slate-100 object-cover"
+                          />
+
+                          {selectedItem.images.length > 1 && (
+                            <div className="grid grid-cols-4 gap-2">
+                              {selectedItem.images
+                                .slice(1)
+                                .map((image, index) => (
+                                  <img
+                                    key={index}
+                                    src={image}
+                                    alt={`${selectedItem.itemName} ${index + 2}`}
+                                    className="h-20 w-full rounded-xl object-cover"
+                                  />
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex h-72 items-center justify-center rounded-2xl bg-slate-100 text-slate-300">
+                          <FaImage size={55} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Information */}
+                    <div>
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full px-4 py-1.5 text-xs font-bold uppercase ${
+                            selectedItem.type === "lost"
+                              ? "bg-rose-100 text-rose-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}
+                        >
+                          {selectedItem.type}
+                        </span>
+
+                        <span
+                          className={`rounded-full px-4 py-1.5 text-xs font-bold capitalize ${getStatusStyle(selectedItem.postStatus)}`}
+                        >
+                          {selectedItem.postStatus}
+                        </span>
+                      </div>
+
+                      <h2 className="mb-3 text-2xl font-extrabold text-slate-800">
+                        {selectedItem.itemName}
+                      </h2>
+
+                      <p className="mb-5 text-sm leading-7 text-slate-600">
+                        {selectedItem.description || "No description provided."}
+                      </p>
+
+                      <div className="space-y-4 border-t border-slate-100 pt-5 text-sm">
+                        <div className="flex gap-3">
+                          <FaBoxOpen className="mt-1 text-emerald-600" />
+                          <div>
+                            <p className="font-semibold text-slate-700">
+                              Category
+                            </p>
+                            <p className="capitalize text-slate-500">
+                              {selectedItem.category?.replaceAll("-", " ")}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <FaMapMarkerAlt className="mt-1 text-emerald-600" />
+                          <div>
+                            <p className="font-semibold text-slate-700">
+                              Location
+                            </p>
+                            <p className="text-slate-500">
+                              {selectedItem.location?.area || "Not specified"}
+                            </p>
+                            <p className="text-slate-500">
+                              {selectedItem.location?.specificLocation || ""}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <FaCalendarAlt className="mt-1 text-emerald-600" />
+                          <div>
+                            <p className="font-semibold text-slate-700">Date</p>
+                            <p className="text-slate-500">
+                              {selectedItem.date || "Not specified"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <FaClock className="mt-1 text-emerald-600" />
+                          <div>
+                            <p className="font-semibold text-slate-700">
+                              Approximate Time
+                            </p>
+                            <p className="text-slate-500">
+                              {selectedItem.approximateTime || "Not specified"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <FaInfoCircle className="mt-1 text-emerald-600" />
+                          <div>
+                            <p className="font-semibold text-slate-700">
+                              Identifying Features
+                            </p>
+                            <p className="text-slate-500">
+                              {selectedItem.identifyingFeatures ||
+                                "Not specified"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <FaPhoneAlt className="mt-1 text-emerald-600" />
+                          <div>
+                            <p className="font-semibold text-slate-700">
+                              Contact Preference
+                            </p>
+                            <p className="text-slate-500">
+                              {selectedItem.contactPreference ||
+                                "Not specified"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Status Management */}
+                  <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <h3 className="mb-3 font-bold text-slate-800">
+                      Manage Post Status
+                    </h3>
+
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <select
+                        value={newStatus}
+                        onChange={(e) => setNewStatus(e.target.value)}
+                        className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium capitalize outline-none focus:border-emerald-500"
+                      >
+                        {STATUS_OPTIONS.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        onClick={handleStatusUpdate}
+                        disabled={statusMutation.isPending}
+                        className="rounded-xl bg-slate-800 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-700 disabled:opacity-60"
+                      >
+                        {statusMutation.isPending
+                          ? "Updating..."
+                          : "Update Status"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-6">
+                    <button
+                      onClick={handleDelete}
+                      disabled={deleteMutation.isPending}
+                      className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 disabled:opacity-60"
+                    >
+                      <FaTrash />
+                      {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                    </button>
+
+                    <button
+                      onClick={() => setEditMode(true)}
+                      className="flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
+                    >
+                      <FaEdit />
+                      Edit Post
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

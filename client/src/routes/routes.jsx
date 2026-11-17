@@ -19,6 +19,7 @@ import AllPosts from "../pages/AllPosts/AllPosts";
 import UserProfile from "../Layout/UserDashboard/UserProfile";
 import MyPosts from "../Layout/UserDashboard/MyPosts";
 import Notifications from "../Layout/UserDashboard/Notifications";
+import Overview from "../Layout/UserDashboard/Overview";
 
 // ===================================
 // Protected Route - Logged In Users
@@ -145,6 +146,7 @@ export const router = createBrowserRouter([
         path: "/user-dashboard",
         element: <UserDashboard />,
         children: [
+          { path: "/user-dashboard", element: <Overview /> },
           {
             path: "/user-dashboard/my-profile",
             element: <UserProfile />,

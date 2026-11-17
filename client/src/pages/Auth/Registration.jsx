@@ -3,17 +3,20 @@ import { Link, useNavigate } from "react-router";
 import { AuthContext } from "../../providers/AuthProvider";
 import { IoIosEye, IoIosEyeOff } from "react-icons/io";
 import { toast } from "react-toastify";
-import GoogleLogin from "./GoogleLogin";
+// import GoogleLogin from "./GoogleLogin";
 import useAxiosPublic from "../../hooks/useAxiosPublic";
+import colleges from "../../data/colleges";
 
 const Registration = () => {
   const navigate = useNavigate();
+
   const { createNewUser, setUser, updateUser } = useContext(AuthContext);
 
   const axiosPublic = useAxiosPublic();
 
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/;
 
@@ -21,44 +24,60 @@ const Registration = () => {
     e.preventDefault();
 
     const form = e.target;
+
     const name = form.name.value;
     const email = form.email.value;
     const password = form.password.value;
+    const collegeId = form.collegeId.value;
 
     if (!passwordRegex.test(password)) {
       setError(
-        "Password must be at least 6 characters long and include an uppercase and a lowercase letter.",
+        "Password must be at least 6 characters and include uppercase and lowercase letters.",
       );
       return;
     }
 
     setError("");
+    setLoading(true);
 
     try {
+      // Firebase account create
       const result = await createNewUser(email, password);
       const user = result.user;
 
-      setUser(user);
+      // Firebase profile update
+      await updateUser({
+        displayName: name,
+      });
 
-      await updateUser({ displayName: name });
+      setUser({
+        ...user,
+        displayName: name,
+      });
 
+      // MongoDB user save
       await axiosPublic.post("/users", {
-        uid: user.uid,
+        userId: user.uid,
+        email: user.email,
         name,
-        email,
-        createdAt: user.metadata.creationTime,
-        college: "No College Selected",
-        photoURL: user.photoURL || "",
+        collegeId,
+        photoUrl: "",
       });
 
       toast.success("Account created successfully!");
-
       navigate("/");
     } catch (err) {
       console.error(err);
 
-      setError("Failed to create account. Please try again.");
+      setError(
+        err.code === "auth/email-already-in-use"
+          ? "This email is already registered."
+          : "Failed to create account. Please try again.",
+      );
+
       toast.error("Registration failed!");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -73,6 +92,7 @@ const Registration = () => {
           {/* Name */}
           <div>
             <label className="block mb-1">Full Name</label>
+
             <input
               type="text"
               name="name"
@@ -85,6 +105,7 @@ const Registration = () => {
           {/* Email */}
           <div>
             <label className="block mb-1">Email</label>
+
             <input
               type="email"
               name="email"
@@ -92,6 +113,28 @@ const Registration = () => {
               className="w-full border rounded-md px-3 py-2"
               required
             />
+          </div>
+
+          {/* College */}
+          <div>
+            <label className="block mb-1">Select Your College</label>
+
+            <select
+              name="collegeId"
+              defaultValue=""
+              className="w-full border rounded-md px-3 py-2 bg-white"
+              required
+            >
+              <option value="" disabled>
+                Select your college
+              </option>
+
+              {colleges.map((college) => (
+                <option key={college.collegeId} value={college.collegeId}>
+                  {college.collegeName}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Password */}
@@ -121,19 +164,18 @@ const Registration = () => {
             </div>
           </div>
 
-          {/* Error */}
           {error && <p className="text-red-500 text-sm">{error}</p>}
 
-          {/* Register Button */}
+          {/* Submit */}
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            Register
+            {loading ? "Registering..." : "Register"}
           </button>
 
-          {/* Google Login */}
-          <GoogleLogin setError={setError} />
+          {/* <GoogleLogin /> */}
         </form>
 
         <p className="text-center text-sm mt-5">

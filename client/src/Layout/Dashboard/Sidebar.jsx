@@ -22,11 +22,11 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, userRole, isMobile }) => {
       label: "My Profile",
       icon: <FaUser />,
     },
-    {
-      path: "/dashboard/all-users",
-      label: "All Users",
-      icon: <FaUsersCog />,
-    },
+    // {
+    //   path: "/dashboard/all-users",
+    //   label: "All Users",
+    //   icon: <FaUsersCog />,
+    // },
     {
       path: "/dashboard/all-assets",
       label: "All Assets",

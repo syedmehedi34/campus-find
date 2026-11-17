@@ -1,66 +1,32 @@
+//! collection name = campus_find
+
 // npx nodemon index.js
+// node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
 const express = require("express");
 const cors = require("cors");
-const jwt = require("jsonwebtoken");
-const cookieParser = require("cookie-parser");
-const app = express();
-require("dotenv").config();
-const port = process.env.PORT || 5001;
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const dotenv = require("dotenv");
+const { MongoClient, ServerApiVersion } = require("mongodb");
 
-// middleware
+dotenv.config();
+
+const app = express();
+const port = process.env.PORT || 5001;
+
 app.use(
   cors({
-    origin: ["http://localhost:5173"], // can be multiple
+    origin: ["http://localhost:5173"],
     credentials: true,
   }),
 );
+
 app.use(express.json());
-app.use(cookieParser());
 
-// verify token hook / middleware
-const verifyToken = (req, res, next) => {
-  const token = req?.cookies?.token;
-  // console.log("yah token is : ", token);
-
-  if (!token) {
-    return res.status(401).send({ message: "unAuthorized access" });
-  }
-
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).send({ message: "Unauthorized access" });
-    }
-    req.user = decoded;
-    next();
-  });
-};
-
-// verify role
-const verifyAdmin = async (req, res, next) => {
-  const token = req?.cookies?.token;
-  const email = req?.user?.email;
-  // console.log("token is : ", token);
-  // console.log(email);
-
-  //
-  //
-  // if (!token) {
-  //   return res
-  //     .status(401)
-  //     .send({ message: "Unauthorized: Token not provided or invalid" });
-  // }
-
-  // const query = { email: email };
-  // const user = await userCollection.findOne(query);
-  // const isAdmin = user?.role === "admin";
-  // if (!isAdmin) {
-  //   return res.status(403).send({ message: "forbidden access" });
-  // }
-  next();
-};
-
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.0uhyg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+const uri = `mongodb+srv://${encodeURIComponent(
+  process.env.DB_USER,
+)}:${encodeURIComponent(
+  process.env.DB_PASS,
+)}@cluster0.0uhyg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -72,69 +38,145 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    // Database and collections sections
-    const jobApplicationCollection = client
-      .db("jobPortal")
-      .collection("job_applications");
+    await client.connect();
+    console.log("MongoDB connected successfully!");
 
-    //. Auth related APIs [JWT token]--//
-    app.post("/jwt", async (req, res) => {
-      // console.log("JWT request received");
+    const database = client.db("campus_find");
+    const usersCollection = database.collection("users");
 
-      const user = req.body;
-      if (!user.email) {
-        return res.status(400).send({ message: "Email is required" });
+    app.get("/", (req, res) => {
+      res.send("Campus Find Server is Running");
+    });
+
+    //* Save user
+    app.post("/users", async (req, res) => {
+      try {
+        const { userId, email, name, collegeId, photoUrl } = req.body;
+
+        if (!userId || !email || !name) {
+          return res.status(400).send({
+            success: false,
+            message: "Required information is missing",
+          });
+        }
+
+        const userData = {
+          userId,
+          email,
+          name,
+          collegeId: collegeId || null,
+          photoUrl: photoUrl || "",
+        };
+
+        const result = await usersCollection.updateOne(
+          { userId },
+          {
+            $setOnInsert: {
+              ...userData,
+              createdAt: new Date(),
+              role: "user",
+            },
+          },
+          { upsert: true },
+        );
+
+        res.send({
+          success: true,
+          message: result.upsertedCount
+            ? "User created successfully"
+            : "User already exists",
+        });
+      } catch (error) {
+        console.error(error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to save user",
+        });
       }
-
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "5h",
-      });
-
-      // console.log("Generated Token:", token);
-      // console.log(req.decoded.email);
-
-      res
-        .cookie("token", token, {
-          httpOnly: true,
-          // secure: false, // set to true only if you're using HTTPS
-          secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-        })
-        .send({ success: true });
     });
 
-    // clear token
-    app.post("/logout", (req, res) => {
-      res
-        .clearCookie("token", {
-          httpOnly: true,
-          secure: false, // set true for https
-        })
-        .send({ success: true });
+    //* Get all users
+    app.get("/users", async (req, res) => {
+      try {
+        const users = await usersCollection.find().toArray();
+        res.send(users);
+      } catch (error) {
+        res.status(500).send({
+          message: "Failed to get users",
+        });
+      }
     });
 
-    //----------------- All APIs -----------------//
-    app.get("/job-application", verifyToken, verifyAdmin, async (req, res) => {
-      // check token
-      // console.log(req.cookies.token);
-      // console.log(req);
-      // console.log(req?.user?.email);
+    //* Get a single user
+    app.get("/users/:userId", async (req, res) => {
+      try {
+        const user = await usersCollection.findOne({
+          userId: req.params.userId,
+        });
 
-      const result = await jobApplicationCollection.find().toArray();
-      res.send(result);
+        if (!user) {
+          return res.status(404).send({
+            message: "User not found",
+          });
+        }
+
+        res.send(user);
+      } catch (error) {
+        res.status(500).send({
+          message: "Failed to get user",
+        });
+      }
     });
-    //--------------------------------------------//
-  } finally {
-    // Ensures that the client will close when you finish/error
-    // await client.close();
+
+    //* Update user profile
+    app.patch("/users/:userId", async (req, res) => {
+      try {
+        const { name, collegeId, photoUrl } = req.body;
+
+        const updateData = {};
+
+        if (name !== undefined) updateData.name = name;
+        if (collegeId !== undefined) updateData.collegeId = collegeId;
+        if (photoUrl !== undefined) updateData.photoUrl = photoUrl;
+
+        if (Object.keys(updateData).length === 0) {
+          return res.status(400).send({
+            message: "No data provided to update",
+          });
+        }
+
+        const result = await usersCollection.updateOne(
+          { userId: req.params.userId },
+          { $set: updateData },
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({
+            message: "User not found",
+          });
+        }
+
+        res.send({
+          success: true,
+          message: "Profile updated successfully",
+        });
+      } catch (error) {
+        console.error(error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to update profile",
+        });
+      }
+    });
+
+    app.listen(port, () => {
+      console.log(`Server is running at port: ${port}`);
+    });
+  } catch (error) {
+    console.error("Server error:", error);
   }
 }
-run().catch(console.dir);
 
-app.get("/", (req, res) => {
-  res.send("Server is running");
-});
-
-app.listen(port, () => {
-  console.log(`Server is running at: ${port}`);
-});
+run();

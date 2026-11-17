@@ -12,9 +12,20 @@ import {
 
 // Give every item a unique path (used as key too)
 const NAV_ITEMS = [
-  { path: "/dashboard", label: "Dashboard", icon: FaTachometerAlt },
-  { path: "/dashboard/my-profile", label: "My Profile", icon: FaUser },
-  { path: "/dashboard/sample-user", label: "Sample User", icon: FaUsersCog },
+  { path: "/user-dashboard", label: "Dashboard", icon: FaTachometerAlt },
+  { path: "/user-dashboard/my-profile", label: "My Profile", icon: FaUser },
+  { path: "/user-dashboard/all-posts", label: "All Posts", icon: FaUser },
+  {
+    path: "/user-dashboard/create-new-post",
+    label: "Create New Post",
+    icon: FaUser,
+  },
+  { path: "/user-dashboard/my-posts", label: "My Posts", icon: FaUser },
+  {
+    path: "/user-dashboard/Notifications",
+    label: "Notifications",
+    icon: FaUsersCog,
+  },
 ];
 
 const Sidebar = ({
@@ -159,3 +170,145 @@ const Sidebar = ({
 };
 
 export default Sidebar;
+
+{
+  /*
+  1. Overview
+
+Route: /user-dashboard
+- মোট Lost Posts
+- মোট Found Posts
+- Active Posts
+- Recently Posted
+- Recent Notifications
+
+2. All Posts
+
+Route: /user-dashboard/all-posts
+- সব Lost & Found পোস্ট দেখা
+- Campus অনুযায়ী Filter
+- Lost / Found অনুযায়ী Filter
+- Category ও Date অনুযায়ী Search
+
+3. Create New Post
+
+Route: /user-dashboard/create-post
+- I Lost Something
+- I Found Something
+- Product Image Upload
+- Item Name, Description
+- Campus, Location, Date
+- Contact Information
+
+4. My Posts
+
+Route: /user-dashboard/my-posts
+- নিজের সব পোস্ট
+- Lost Posts
+- Found Posts
+- Edit / Delete
+- Mark as Recovered / Returned
+- Post Status দেখা
+
+5. Notifications
+
+Route: /user-dashboard/notifications
+- কেউ তোমার পোস্টে আগ্রহ দেখালে
+- কেউ তোমার হারানো জিনিস খুঁজে পেলে
+- Post Approved / Rejected
+- নতুন Message বা Claim Request
+
+6. My Profile
+
+Route: /user-dashboard/my-profile
+- Name, Email, Profile Picture
+- College / University
+- Department
+- Student Information
+- Contact Number
+- Update Profile
+
+
+
+--
+--
+1. Overview
+
+Route: /admin/dashboard
+- Total Users
+- Total Campuses
+- Total Lost Posts
+- Total Found Posts
+- Pending Posts
+- Recovered Items
+- Recent Activities
+
+2. Manage Posts
+
+Route: /admin/posts
+- All Posts
+- Pending Posts
+- Approved Posts
+- Rejected Posts
+- Reported Posts
+- Edit / Delete Posts
+- Approve / Reject Posts
+
+3. Manage Users
+
+Route: /admin/users
+- All Users
+- Search Users
+- Filter by Campus
+- User Details
+- Block / Unblock Users
+- Change User Role
+
+4. Manage Campuses
+
+Route: /admin/campuses
+- All Campuses
+- Add New Campus
+- Edit Campus Information
+- Activate / Deactivate Campus
+- Campus-wise Statistics
+
+5. Manage Reports
+
+Route: /admin/reports
+- User Reported Posts
+- Reported Users
+- Spam / Fake Posts
+- Resolve / Reject Reports
+
+6. Manage Claims
+
+Route: /admin/claims
+- All Claim Requests
+- Pending Verification
+- Approved Claims
+- Rejected Claims
+- Disputed Ownership
+
+7. Manage Categories
+
+Route: /admin/categories
+- Electronics
+- Books & Notes
+- Bags & Accessories
+- ID Cards
+- Clothing
+- Other Items
+- Add / Edit / Delete Categories
+
+8. Settings
+
+Route: /admin/settings
+- Website Information
+- Post Approval Settings
+- Platform Configuration
+- Admin Profile
+
+
+  */
+}

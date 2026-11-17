@@ -7,7 +7,7 @@ import TopBar from "./Topbar";
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
 /* ---------------------------------------------------------------
-   TODO: Replace these mocks with your real auth / role hooks.
+  TODO: Replace these mocks with your real auth / role hooks.
 ---------------------------------------------------------------- */
 const MOCK_USER = { displayName: "John Doe", email: "john@example.com" };
 const useAuth = () => ({ user: MOCK_USER, loading: false });
@@ -40,21 +40,12 @@ const UserDashboard = () => {
 
   // Desktop: open by default. Mobile: closed by default.
   const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop);
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem("theme") !== "light",
-  );
 
   // Reset sidebar only when the breakpoint changes
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsSidebarOpen(isDesktop);
   }, [isDesktop]);
-
-  // Apply theme
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-    localStorage.setItem("theme", darkMode ? "dark" : "light");
-  }, [darkMode]);
 
   // Auth guard
   useEffect(() => {
@@ -81,7 +72,6 @@ const UserDashboard = () => {
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((p) => !p), []);
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
-  const toggleDarkMode = useCallback(() => setDarkMode((p) => !p), []);
 
   const handleLogout = useCallback(() => {
     console.log("Logging out...");
@@ -90,14 +80,14 @@ const UserDashboard = () => {
 
   if (authLoading || roleLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-[#0B0716]">
+      <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-teal-500/30 border-t-teal-500" />
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-slate-50 text-slate-800 transition-colors duration-300 dark:bg-[#0B0716] dark:text-slate-100">
+    <div className="relative min-h-screen overflow-x-hidden bg-slate-50 text-slate-800">
       {/* Decorative blurred background blobs */}
       <div
         aria-hidden
@@ -140,8 +130,6 @@ const UserDashboard = () => {
           toggleSidebar={toggleSidebar}
           user={user}
           userRole={userRole}
-          darkMode={darkMode}
-          toggleDarkMode={toggleDarkMode}
           onLogout={handleLogout}
         />
 

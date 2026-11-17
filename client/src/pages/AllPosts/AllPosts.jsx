@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "react-router";
 import {
   FaSearch,
   FaMapMarkerAlt,
@@ -59,6 +60,9 @@ const formatCategory = (category = "") =>
     .join(" ");
 
 const AllPosts = () => {
+  const location = useLocation();
+  const showHero = location.pathname === "/posts";
+
   const { loggedInUser } = useUserData();
   const axiosPublic = useAxiosPublic();
 
@@ -154,63 +158,65 @@ const AllPosts = () => {
 
       <div className="relative mx-auto max-w-7xl">
         {/* ================= HERO ================= */}
-        <section className="relative mb-10 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#102b27] via-[#16463a] to-[#087d5d] px-6 py-10 shadow-xl shadow-emerald-950/10 sm:px-10 sm:py-12 lg:py-14">
-          {/* Decorative circles */}
-          <div className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full border border-white/10" />
-          <div className="pointer-events-none absolute -right-5 -top-20 h-64 w-64 rounded-full border border-white/10" />
-          <div className="pointer-events-none absolute -bottom-40 right-1/4 h-80 w-80 rounded-full border border-emerald-200/10" />
-          <div className="pointer-events-none absolute bottom-0 right-0 h-72 w-72 rounded-full bg-emerald-300/10 blur-3xl" />
+        {showHero && (
+          <section className="relative mb-10 overflow-hidden rounded-[28px] bg-gradient-to-br from-[#102b27] via-[#16463a] to-[#087d5d] px-6 py-10 shadow-xl shadow-emerald-950/10 sm:px-10 sm:py-12 lg:py-14">
+            {/* Decorative circles */}
+            <div className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full border border-white/10" />
+            <div className="pointer-events-none absolute -right-5 -top-20 h-64 w-64 rounded-full border border-white/10" />
+            <div className="pointer-events-none absolute -bottom-40 right-1/4 h-80 w-80 rounded-full border border-emerald-200/10" />
+            <div className="pointer-events-none absolute bottom-0 right-0 h-72 w-72 rounded-full bg-emerald-300/10 blur-3xl" />
 
-          <div className="relative z-10 max-w-2xl">
-            <div className="mb-7 flex items-center gap-2 text-[11px] font-extrabold tracking-[2px] text-emerald-200">
-              <span>LOSTHUB</span>
-              <span className="text-white/40">/</span>
-              <span className="text-white/70">EXPLORE POSTS</span>
-            </div>
-
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-[11px] font-semibold text-emerald-100">
-              <FaHandHoldingHeart />A COMMUNITY THAT CARES
-            </div>
-
-            <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
-              Lost something?
-              <br />
-              <span className="text-emerald-300">Found something?</span>
-            </h1>
-
-            <p className="mt-5 max-w-xl text-sm leading-7 text-white/70 sm:text-base">
-              Explore lost and found items from your university. You might find
-              something you've been looking for, or help someone get their
-              belongings back.
-            </p>
-
-            <div className="mt-7 flex flex-wrap gap-5 text-xs text-white/80">
-              <div className="flex items-center gap-2">
-                <FaSearch className="text-emerald-300" />
-                Discover items
+            <div className="relative z-10 max-w-2xl">
+              <div className="mb-7 flex items-center gap-2 text-[11px] font-extrabold tracking-[2px] text-emerald-200">
+                <span>LOSTHUB</span>
+                <span className="text-white/40">/</span>
+                <span className="text-white/70">EXPLORE POSTS</span>
               </div>
 
-              <div className="flex items-center gap-2">
-                <FaHandHoldingHeart className="text-emerald-300" />
-                Help students
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/10 px-4 py-2 text-[11px] font-semibold text-emerald-100">
+                <FaHandHoldingHeart />A COMMUNITY THAT CARES
               </div>
 
-              <div className="flex items-center gap-2">
-                <FaBoxOpen className="text-emerald-300" />
-                Reunite belongings
-              </div>
-            </div>
-          </div>
+              <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl">
+                Lost something?
+                <br />
+                <span className="text-emerald-300">Found something?</span>
+              </h1>
 
-          {/* Hero visual */}
-          <div className="absolute bottom-5 right-12 hidden h-48 w-48 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] lg:flex">
-            <div className="flex h-36 w-36 items-center justify-center rounded-full border border-dashed border-emerald-200/30">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/20 bg-white/10 text-5xl text-emerald-200 shadow-2xl backdrop-blur-xl">
-                <FaSearch className="animate-pulse" />
+              <p className="mt-5 max-w-xl text-sm leading-7 text-white/70 sm:text-base">
+                Explore lost and found items from your university. You might
+                find something you've been looking for, or help someone get
+                their belongings back.
+              </p>
+
+              <div className="mt-7 flex flex-wrap gap-5 text-xs text-white/80">
+                <div className="flex items-center gap-2">
+                  <FaSearch className="text-emerald-300" />
+                  Discover items
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <FaHandHoldingHeart className="text-emerald-300" />
+                  Help students
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <FaBoxOpen className="text-emerald-300" />
+                  Reunite belongings
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+
+            {/* Hero visual */}
+            <div className="absolute bottom-5 right-12 hidden h-48 w-48 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] lg:flex">
+              <div className="flex h-36 w-36 items-center justify-center rounded-full border border-dashed border-emerald-200/30">
+                <div className="flex h-24 w-24 items-center justify-center rounded-3xl border border-white/20 bg-white/10 text-5xl text-emerald-200 shadow-2xl backdrop-blur-xl">
+                  <FaSearch className="animate-pulse" />
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ================= PAGE HEADING ================= */}
         <div className="mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">

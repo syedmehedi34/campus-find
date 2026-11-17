@@ -16,6 +16,7 @@ import Registration from "../pages/Auth/Registration";
 import About from "../pages/About/About";
 import NewPost from "../pages/NewPost/NewPost";
 import AllPosts from "../pages/AllPosts/AllPosts";
+import UserProfile from "../Layout/UserDashboard/UserProfile";
 
 // import PostLostItem from "../pages/Items/PostLostItem";
 // import PostFoundItem from "../pages/Items/PostFoundItem";
@@ -23,7 +24,6 @@ import AllPosts from "../pages/AllPosts/AllPosts";
 // import Profile from "../pages/Profile/Profile";
 
 // Admin Pages
-
 // import AdminDashboard from "../pages/Admin/AdminDashboard";
 // import ManagePosts from "../pages/Admin/ManagePosts";
 // import ManageUsers from "../pages/Admin/ManageUsers";
@@ -31,7 +31,7 @@ import AllPosts from "../pages/AllPosts/AllPosts";
 // import ManageCampuses from "../pages/Admin/ManageCampuses";
 
 // ===================================
-// Protected Route
+// Protected Route - Logged In Users
 // ===================================
 
 const ProtectedRoute = () => {
@@ -49,12 +49,11 @@ const ProtectedRoute = () => {
 };
 
 // ===================================
-// Admin Route
+// User Route - Only user
 // ===================================
 
-const AdminRoute = () => {
+const UserRoute = () => {
   const { user, loading } = useContext(AuthContext);
-
   const { loggedInUser, loggedInUserLoading } = useUserData();
 
   if (loading || (user && loggedInUserLoading)) {
@@ -65,7 +64,30 @@ const AdminRoute = () => {
     return <Navigate to="/" replace />;
   }
 
-  if (loggedInUser?.role !== "hr_manager") {
+  if (loggedInUser?.role !== "user") {
+    return <Navigate to="/" replace />;
+  }
+
+  return <Outlet />;
+};
+
+// ===================================
+// Admin Route - Only admin
+// ===================================
+
+const AdminRoute = () => {
+  const { user, loading } = useContext(AuthContext);
+  const { loggedInUser, loggedInUserLoading } = useUserData();
+
+  if (loading || (user && loggedInUserLoading)) {
+    return <progress className="progress w-56"></progress>;
+  }
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (loggedInUser?.role !== "admin") {
     return <Navigate to="/" replace />;
   }
 
@@ -103,13 +125,13 @@ export const router = createBrowserRouter([
         element: <About />,
       },
 
-      // all posts
+      // All Posts
       {
         path: "posts",
         element: <AllPosts />,
       },
 
-      // create new post
+      // Create New Post
       {
         path: "create-post",
         element: <NewPost />,
@@ -117,42 +139,64 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // Protected Routes - Logged In Users
+  // Protected Routes - Any Logged In User
   {
     element: <ProtectedRoute />,
+    children: [
+      // for both user and admin common routes can be added here
+    ],
+  },
+
+  // User Routes - Only user role
+  {
+    element: <UserRoute />,
     children: [
       {
         path: "/user-dashboard",
         element: <UserDashboard />,
+        children: [
+          {
+            path: "/user-dashboard/my-profile",
+            element: <UserProfile />,
+          },
+          {
+            path: "/user-dashboard/all-posts",
+            element: <AllPosts />,
+          },
+          {
+            path: "/user-dashboard/create-new-post",
+            element: <NewPost />,
+          },
+        ],
       },
 
       // User Profile
       // {
-      //   path: "/profile",
+      //   path: "/user-dashboard/my-profile",
       //   element: <Profile />,
       // },
 
       // My Posts
       // {
-      //   path: "/my-posts",
+      //   path: "/user-dashboard/my-posts",
       //   element: <MyPosts />,
       // },
 
       // Post Lost Item
       // {
-      //   path: "/post-lost-item",
+      //   path: "/user-dashboard/post-lost-item",
       //   element: <PostLostItem />,
       // },
 
       // Post Found Item
       // {
-      //   path: "/post-found-item",
+      //   path: "/user-dashboard/post-found-item",
       //   element: <PostFoundItem />,
       // },
     ],
   },
 
-  // Admin Routes - Only hr_manager
+  // Admin Routes - Only admin role
   {
     element: <AdminRoute />,
     children: [

@@ -6,7 +6,7 @@ import { AuthContext } from "../providers/AuthProvider";
 import useUserData from "../hooks/useUserData";
 
 import MainLayout from "../Layout/MainLayout";
-import Dashboard from "../Layout/UserDashboard/Dashboard";
+import UserDashboard from "../Layout/UserDashboard/Dashboard";
 
 import Home from "../pages/Home/Home";
 import Login from "../pages/Auth/Login";
@@ -122,8 +122,8 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        path: "/dashboard",
-        element: <Dashboard />,
+        path: "/user-dashboard",
+        element: <UserDashboard />,
       },
 
       // User Profile

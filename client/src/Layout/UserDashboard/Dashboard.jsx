@@ -29,7 +29,7 @@ const useIsDesktop = () => {
   return isDesktop;
 };
 
-const Dashboard = () => {
+const UserDashboard = () => {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   const isMobile = !isDesktop;
@@ -153,4 +153,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default UserDashboard;

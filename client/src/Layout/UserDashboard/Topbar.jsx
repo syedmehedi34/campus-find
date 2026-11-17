@@ -1,13 +1,7 @@
 // client/src/Layout/UserDashboard/Topbar.jsx
 import { useState, useEffect, useRef } from "react";
-import { FaSun, FaMoon, FaBell, FaSearch, FaBars } from "react-icons/fa";
+import { FaSun, FaMoon, FaSearch, FaBars } from "react-icons/fa";
 import { Link } from "react-router";
-
-const MOCK_NOTIFICATIONS = [
-  { id: 1, title: "New item reported", time: "2 min ago" },
-  { id: 2, title: "Your claim was approved", time: "1 hour ago" },
-  { id: 3, title: "Welcome to CampusFind!", time: "Yesterday" },
-];
 
 const dropdownClass = (open) =>
   `absolute right-0 mt-3 origin-top-right rounded-2xl border border-white/10 bg-teal-900/95 shadow-2xl backdrop-blur-xl transition-all duration-200 ${
@@ -25,7 +19,6 @@ const TopBar = ({
   toggleDarkMode,
   onLogout,
 }) => {
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notificationRef = useRef(null);
   const profileRef = useRef(null);
@@ -37,12 +30,10 @@ const TopBar = ({
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!notificationRef.current?.contains(e.target))
-        setShowNotifications(false);
-      if (!profileRef.current?.contains(e.target)) setShowProfileMenu(false);
+        if (!profileRef.current?.contains(e.target)) setShowProfileMenu(false);
     };
     const handleEscape = (e) => {
       if (e.key === "Escape") {
-        setShowNotifications(false);
         setShowProfileMenu(false);
       }
     };
@@ -96,47 +87,11 @@ const TopBar = ({
           </span>
         </button>
 
-        {/* Notifications */}
-        <div className="relative" ref={notificationRef}>
-          <button
-            onClick={() => {
-              setShowNotifications((p) => !p);
-              setShowProfileMenu(false);
-            }}
-            aria-label="Notifications"
-            className={iconBtn}
-          >
-            <FaBell />
-            <span className="absolute right-2 top-2 flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" />
-            </span>
-          </button>
-
-          <div className={`${dropdownClass(showNotifications)} w-72 sm:w-80`}>
-            <div className="border-b border-white/10 px-4 py-3">
-              <p className="text-sm font-semibold text-white">Notifications</p>
-            </div>
-            <ul className="max-h-72 overflow-y-auto p-2">
-              {MOCK_NOTIFICATIONS.map((n) => (
-                <li
-                  key={n.id}
-                  className="cursor-pointer rounded-xl p-3 transition-colors duration-200 hover:bg-white/10"
-                >
-                  <p className="text-sm font-medium text-teal-50">{n.title}</p>
-                  <p className="text-xs text-teal-300">{n.time}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
         {/* Profile */}
         <div className="relative" ref={profileRef}>
           <button
             onClick={() => {
               setShowProfileMenu((p) => !p);
-              setShowNotifications(false);
             }}
             className="flex items-center gap-3 rounded-full p-1 pr-1 transition-colors duration-200 hover:bg-white/10 md:pr-3"
           >

@@ -364,7 +364,7 @@ const Navbar = () => {
 
               {!isAdmin && (
                 <Link
-                  to="/dashboard"
+                  to="/user-dashboard"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700"
                 >

@@ -1,11 +1,14 @@
-import React from 'react';
+import useUserData from "../../hooks/useUserData";
 
 const Home = () => {
-    return (
-        <div>
-            Home
-        </div>
-    );
+  const { loggedInUser } = useUserData();
+  console.log(loggedInUser);
+
+  return (
+    <div>
+      <h1>hello</h1>
+    </div>
+  );
 };
 
 export default Home;

@@ -3,16 +3,16 @@ import { useState, useEffect, useCallback } from "react";
 import { Outlet, useNavigate } from "react-router";
 import Sidebar from "./Sidebar";
 import TopBar from "./Topbar";
+import { useAuth } from "../../providers/AuthProvider";
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
 /* ---------------------------------------------------------------
   TODO: Replace these mocks with your real auth / role hooks.
 ---------------------------------------------------------------- */
-const MOCK_USER = { displayName: "John Doe", email: "john@example.com" };
-const useAuth = () => ({ user: MOCK_USER, loading: false });
-const useRole = () => [{ role: "admin" }, false];
-
+// const MOCK_USER = { displayName: "John Doe", email: "john@example.com" };
+// const useAuth = () => ({ user: MOCK_USER, loading: false });
+// const useRole = () => [{ role: "admin" }, false];
 /* Tracks the lg breakpoint; fires only when the breakpoint is crossed. */
 const useIsDesktop = () => {
   const [isDesktop, setIsDesktop] = useState(
@@ -34,9 +34,9 @@ const UserDashboard = () => {
   const isDesktop = useIsDesktop();
   const isMobile = !isDesktop;
 
-  const { user, loading: authLoading } = useAuth();
-  const [roleData, roleLoading] = useRole();
-  const userRole = roleData?.role;
+  const { user, loading: authLoading, logOut } = useAuth();
+  // const [roleData, roleLoading] = useRole();
+  const userRole = "user";
 
   // Desktop: open by default. Mobile: closed by default.
   const [isSidebarOpen, setIsSidebarOpen] = useState(isDesktop);
@@ -49,9 +49,9 @@ const UserDashboard = () => {
 
   // Auth guard
   useEffect(() => {
-    if (authLoading || roleLoading) return;
+    if (authLoading) return;
     if (!user) navigate("/");
-  }, [user, authLoading, roleLoading, navigate]);
+  }, [user, authLoading, navigate]);
 
   // Lock body scroll while the mobile drawer is open
   useEffect(() => {
@@ -73,12 +73,17 @@ const UserDashboard = () => {
   const toggleSidebar = useCallback(() => setIsSidebarOpen((p) => !p), []);
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
 
-  const handleLogout = useCallback(() => {
-    console.log("Logging out...");
-    navigate("/");
-  }, [navigate]);
+  const handleLogout = useCallback(async () => {
+    try {
+      await logOut();
 
-  if (authLoading || roleLoading) {
+      navigate("/", { replace: true });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  }, [logOut, navigate]);
+
+  if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="h-12 w-12 animate-spin rounded-full border-4 border-teal-500/30 border-t-teal-500" />

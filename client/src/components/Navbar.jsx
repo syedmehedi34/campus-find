@@ -71,13 +71,8 @@ const Navbar = () => {
       icon: Info,
     },
     {
-      name: "Lost Items",
-      path: "/lost-items",
-      icon: Search,
-    },
-    {
-      name: "Found Items",
-      path: "/found-items",
+      name: "New Post",
+      path: "/create-post",
       icon: Search,
     },
   ];
@@ -180,27 +175,6 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center gap-1">
               {renderLinks()}
-
-              {/* Student Post Buttons */}
-              {user && !isAdmin && (
-                <>
-                  <Link
-                    to="/post-lost-item"
-                    className="flex items-center gap-2 px-3 py-2 ml-1 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition"
-                  >
-                    <Plus size={17} />
-                    Post Lost Item
-                  </Link>
-
-                  <Link
-                    to="/post-found-item"
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition"
-                  >
-                    <Plus size={17} />
-                    Post Found Item
-                  </Link>
-                </>
-              )}
             </nav>
 
             {/* Right Side */}
@@ -262,28 +236,6 @@ const Navbar = () => {
           <div className="lg:hidden border-t border-gray-200 bg-white px-4 py-4">
             <nav className="flex flex-col gap-2">
               {renderLinks()}
-
-              {user && !isAdmin && (
-                <>
-                  <Link
-                    to="/post-lost-item"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium"
-                  >
-                    <Plus size={17} />
-                    Post Lost Item
-                  </Link>
-
-                  <Link
-                    to="/post-found-item"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium"
-                  >
-                    <Plus size={17} />
-                    Post Found Item
-                  </Link>
-                </>
-              )}
 
               {!user && !loading && (
                 <div className="flex gap-2 pt-3 border-t border-gray-100">

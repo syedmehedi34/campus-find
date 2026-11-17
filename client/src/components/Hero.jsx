@@ -26,7 +26,7 @@ const floatingCards = [
   {
     title: "Scientific Calculator",
     category: "Found Item",
-    location: "ETE Building",
+    location: "CSE Building",
     time: "Just now",
     icon: "🧮",
     color: "border-emerald-200 bg-emerald-50",

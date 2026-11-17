@@ -177,16 +177,20 @@ async function run() {
     //! Update User Profile
     app.patch("/users/:userId", async (req, res) => {
       try {
-        const { name, collegeId, photoUrl } = req.body;
+        const { name, phone, department, batch, bio, photoUrl } = req.body;
 
         const updateData = {};
 
         if (name !== undefined) updateData.name = name;
-        if (collegeId !== undefined) updateData.collegeId = collegeId;
+        if (phone !== undefined) updateData.phone = phone;
+        if (department !== undefined) updateData.department = department;
+        if (batch !== undefined) updateData.batch = batch;
+        if (bio !== undefined) updateData.bio = bio;
         if (photoUrl !== undefined) updateData.photoUrl = photoUrl;
 
         if (Object.keys(updateData).length === 0) {
           return res.status(400).send({
+            success: false,
             message: "No data provided to update",
           });
         }
@@ -198,6 +202,7 @@ async function run() {
 
         if (result.matchedCount === 0) {
           return res.status(404).send({
+            success: false,
             message: "User not found",
           });
         }

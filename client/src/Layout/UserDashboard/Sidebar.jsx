@@ -5,27 +5,28 @@ import {
   FaTimes,
   FaTachometerAlt,
   FaUser,
-  FaUsersCog,
   FaSignOutAlt,
   FaSearchLocation,
 } from "react-icons/fa";
+import { FilePlusCorner, List, Notebook } from "lucide-react";
+<List />;
 
 // Give every item a unique path (used as key too)
 const NAV_ITEMS = [
   { path: "/user-dashboard", label: "Dashboard", icon: FaTachometerAlt },
   { path: "/user-dashboard/my-profile", label: "My Profile", icon: FaUser },
-  { path: "/user-dashboard/all-posts", label: "All Posts", icon: FaUser },
+  { path: "/user-dashboard/all-posts", label: "All Posts", icon: List },
   {
     path: "/user-dashboard/create-new-post",
     label: "Create New Post",
-    icon: FaUser,
+    icon: FilePlusCorner,
   },
-  { path: "/user-dashboard/my-posts", label: "My Posts", icon: FaUser },
-  {
-    path: "/user-dashboard/Notifications",
-    label: "Notifications",
-    icon: FaUsersCog,
-  },
+  { path: "/user-dashboard/my-posts", label: "My Posts", icon: Notebook },
+  // {
+  //   path: "/user-dashboard/Notifications",
+  //   label: "Notifications",
+  //   icon: FaUsersCog,
+  // },
 ];
 
 const Sidebar = ({

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Swal from "sweetalert2";
 import {
@@ -54,6 +55,11 @@ const initialFormData = {
 };
 
 const NewPost = () => {
+  const { pathname } = useLocation();
+
+  // Hero section only for the public create-post route
+  const showHero = pathname === "/create-post";
+
   const { loggedInUser } = useUserData();
   const axiosPublic = useAxiosPublic();
   const queryClient = useQueryClient();
@@ -167,72 +173,74 @@ const NewPost = () => {
 
       <div className="np-container">
         {/* Hero section */}
-        <section className="np-hero">
-          <div className="np-hero-content">
-            <div className="np-breadcrumb">
-              <span>LOSTHUB</span>
-              <span className="np-breadcrumb-dot">/</span>
-              <span>Create Post</span>
-            </div>
-
-            <div className="np-hero-badge">
-              <FaHandHoldingHeart />
-              <span>Community starts with helping</span>
-            </div>
-
-            <h1>
-              Lost something?
-              <br />
-              <span>Let's find it together.</span>
-            </h1>
-
-            <p className="np-hero-description">
-              Every lost item has a story. Share the details with your campus
-              community and let someone help bring it back home.
-            </p>
-
-            <div className="np-hero-features">
-              <div>
-                <FaShieldAlt />
-                <span>Campus community</span>
+        {showHero && (
+          <section className="np-hero">
+            <div className="np-hero-content">
+              <div className="np-breadcrumb">
+                <span>LOSTHUB</span>
+                <span className="np-breadcrumb-dot">/</span>
+                <span>Create Post</span>
               </div>
-              <div>
-                <FaSearch />
-                <span>Easy discovery</span>
-              </div>
-              <div>
+
+              <div className="np-hero-badge">
                 <FaHandHoldingHeart />
-                <span>Help each other</span>
+                <span>Community starts with helping</span>
+              </div>
+
+              <h1>
+                Lost something?
+                <br />
+                <span>Let's find it together.</span>
+              </h1>
+
+              <p className="np-hero-description">
+                Every lost item has a story. Share the details with your campus
+                community and let someone help bring it back home.
+              </p>
+
+              <div className="np-hero-features">
+                <div>
+                  <FaShieldAlt />
+                  <span>Campus community</span>
+                </div>
+                <div>
+                  <FaSearch />
+                  <span>Easy discovery</span>
+                </div>
+                <div>
+                  <FaHandHoldingHeart />
+                  <span>Help each other</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="np-hero-visual">
-            <div className="np-orbit np-orbit-one"></div>
-            <div className="np-orbit np-orbit-two"></div>
+            <div className="np-hero-visual">
+              <div className="np-orbit np-orbit-one"></div>
+              <div className="np-orbit np-orbit-two"></div>
 
-            <div className="np-visual-card">
-              <div className="np-visual-icon">
-                <FaBoxOpen />
+              <div className="np-visual-card">
+                <div className="np-visual-icon">
+                  <FaBoxOpen />
+                </div>
+                <span className="np-visual-small">
+                  A little help goes a long way
+                </span>
+                <h3>Someone might be looking for this.</h3>
+                <div className="np-visual-status">
+                  <span></span>
+                  Make someone's day better
+                </div>
               </div>
-              <span className="np-visual-small">
-                A little help goes a long way
-              </span>
-              <h3>Someone might be looking for this.</h3>
-              <div className="np-visual-status">
-                <span></span>
-                Make someone's day better
+
+              <div className="np-floating-icon np-floating-one">
+                <FaSearch />
+              </div>
+              <div className="np-floating-icon np-floating-two">
+                <FaHandHoldingHeart />
               </div>
             </div>
-
-            <div className="np-floating-icon np-floating-one">
-              <FaSearch />
-            </div>
-            <div className="np-floating-icon np-floating-two">
-              <FaHandHoldingHeart />
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Form heading */}
         <div className="np-form-heading">

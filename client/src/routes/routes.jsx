@@ -17,18 +17,8 @@ import About from "../pages/About/About";
 import NewPost from "../pages/NewPost/NewPost";
 import AllPosts from "../pages/AllPosts/AllPosts";
 import UserProfile from "../Layout/UserDashboard/UserProfile";
-
-// import PostLostItem from "../pages/Items/PostLostItem";
-// import PostFoundItem from "../pages/Items/PostFoundItem";
-// import MyPosts from "../pages/Items/MyPosts";
-// import Profile from "../pages/Profile/Profile";
-
-// Admin Pages
-// import AdminDashboard from "../pages/Admin/AdminDashboard";
-// import ManagePosts from "../pages/Admin/ManagePosts";
-// import ManageUsers from "../pages/Admin/ManageUsers";
-// import ManageReports from "../pages/Admin/ManageReports";
-// import ManageCampuses from "../pages/Admin/ManageCampuses";
+import MyPosts from "../Layout/UserDashboard/MyPosts";
+import Notifications from "../Layout/UserDashboard/Notifications";
 
 // ===================================
 // Protected Route - Logged In Users
@@ -167,28 +157,16 @@ export const router = createBrowserRouter([
             path: "/user-dashboard/create-new-post",
             element: <NewPost />,
           },
+          {
+            path: "/user-dashboard/my-posts",
+            element: <MyPosts />,
+          },
+          {
+            path: "/user-dashboard/notifications",
+            element: <Notifications />,
+          },
         ],
       },
-
-      // User Profile
-      // {
-      //   path: "/user-dashboard/my-profile",
-      //   element: <Profile />,
-      // },
-
-      // My Posts
-      // {
-      //   path: "/user-dashboard/my-posts",
-      //   element: <MyPosts />,
-      // },
-
-      // Post Lost Item
-      // {
-      //   path: "/user-dashboard/post-lost-item",
-      //   element: <PostLostItem />,
-      // },
-
-      // Post Found Item
       // {
       //   path: "/user-dashboard/post-found-item",
       //   element: <PostFoundItem />,

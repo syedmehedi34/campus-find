@@ -456,6 +456,107 @@ async function run() {
       }
     });
 
+    //! Get My Posts (Logged-in User)
+    app.get("/items/my-posts", async (req, res) => {
+      try {
+        const {
+          userId,
+          type,
+          category,
+          search,
+          page = 1,
+          limit = 12,
+        } = req.query;
+
+        if (!userId) {
+          return res.status(400).send({
+            success: false,
+            message: "User ID is required",
+          });
+        }
+
+        // Find logged-in user
+        const user = await usersCollection.findOne({ userId });
+
+        if (!user || !user.collegeId) {
+          return res.status(404).send({
+            success: false,
+            message: "User or university not found",
+          });
+        }
+
+        // Only this user's posts
+        const query = {
+          userId: user.userId,
+          universityCode: user.collegeId,
+          isDeleted: false,
+        };
+
+        // Filter by Lost / Found
+        if (type && type !== "all") {
+          if (!ITEM_TYPES.includes(type)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid item type",
+            });
+          }
+
+          query.type = type;
+        }
+
+        // Filter by category
+        if (category) {
+          if (!CATEGORIES.includes(category)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid category",
+            });
+          }
+
+          query.category = category;
+        }
+
+        // Search by item name
+        if (search?.trim()) {
+          const escapedSearch = search
+            .trim()
+            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+          query.itemName = {
+            $regex: escapedSearch,
+            $options: "i",
+          };
+        }
+
+        const currentPage = Math.max(1, Number(page) || 1);
+        const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
+
+        const totalItems = await itemsCollection.countDocuments(query);
+
+        const items = await itemsCollection
+          .find(query)
+          .sort({ createdAt: -1 })
+          .skip((currentPage - 1) * perPage)
+          .limit(perPage)
+          .toArray();
+
+        res.send({
+          success: true,
+          totalItems,
+          currentPage,
+          totalPages: Math.ceil(totalItems / perPage),
+          items,
+        });
+      } catch (error) {
+        console.error("Get my posts error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to get your posts",
+        });
+      }
+    });
+
     //! Get Single Item
     app.get("/items/:id", async (req, res) => {
       try {

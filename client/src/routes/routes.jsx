@@ -14,7 +14,7 @@ import Registration from "../pages/Auth/Registration";
 
 // Future Pages - Create these files when needed
 
-// import About from "../pages/About/About";
+import About from "../pages/About/About";
 // import LostItems from "../pages/Items/LostItems";
 // import FoundItems from "../pages/Items/FoundItems";
 // import PostLostItem from "../pages/Items/PostLostItem";
@@ -98,10 +98,10 @@ export const router = createBrowserRouter([
       },
 
       // About Us
-      // {
-      //   path: "about",
-      //   element: <About />,
-      // },
+      {
+        path: "about",
+        element: <About />,
+      },
 
       // All Lost Items
       // {

@@ -1143,108 +1143,148 @@ async function run() {
     // ["active", "cancelled", "resolved"]
 
     // ! Get All Posts for Admin
-    app.get(
-      "/admin/items",
+    app.get("/admin/items", async (req, res) => {
+      try {
+        const {
+          type,
+          category,
+          search,
+          moderationStatus,
+          postStatus,
+          campusCode,
+          email,
+          page = 1,
+          limit = 12,
+        } = req.query;
 
-      async (req, res) => {
-        try {
-          const {
-            type,
-            category,
-            search,
-            moderationStatus,
-            postStatus,
-            page = 1,
-            limit = 12,
-          } = req.query;
+        // Base query
+        const query = {
+          isDeleted: false,
+        };
 
-          const query = {
-            isDeleted: false,
+        // Filter by campus code
+        if (campusCode?.trim()) {
+          query.universityCode = campusCode.trim().toUpperCase();
+        }
+
+        // Filter by user email
+        if (email?.trim()) {
+          const normalizedEmail = email.trim().toLowerCase();
+
+          const user = await usersCollection.findOne({
+            email: normalizedEmail,
+          });
+
+          if (!user) {
+            return res.send({
+              success: true,
+              totalItems: 0,
+              currentPage: 1,
+              totalPages: 0,
+              stats: {
+                total: 0,
+                pending: 0,
+                approved: 0,
+                rejected: 0,
+              },
+              items: [],
+            });
+          }
+
+          query.userId = user.userId;
+        }
+
+        // Filter by Lost / Found
+        if (type && type !== "all") {
+          if (!ITEM_TYPES.includes(type)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid item type",
+            });
+          }
+
+          query.type = type;
+        }
+
+        // Filter by category
+        if (category && category !== "all") {
+          if (!CATEGORIES.includes(category)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid category",
+            });
+          }
+
+          query.category = category;
+        }
+
+        // Filter by moderation status
+        if (moderationStatus && moderationStatus !== "all") {
+          if (!MODERATION_STATUSES.includes(moderationStatus)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid moderation status",
+            });
+          }
+
+          query.moderationStatus = moderationStatus;
+        }
+
+        // Filter by post status
+        if (postStatus && postStatus !== "all") {
+          if (!POST_STATUSES.includes(postStatus)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid post status",
+            });
+          }
+
+          query.postStatus = postStatus;
+        }
+
+        // Search by item name
+        if (search?.trim()) {
+          const escapedSearch = search
+            .trim()
+            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+          query.itemName = {
+            $regex: escapedSearch,
+            $options: "i",
           };
+        }
 
-          if (type && type !== "all") {
-            if (!ITEM_TYPES.includes(type)) {
-              return res.status(400).send({
-                success: false,
-                message: "Invalid item type",
-              });
-            }
+        // Pagination
+        const currentPage = Math.max(1, Number(page) || 1);
+        const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
 
-            query.type = type;
-          }
+        // Total filtered posts
+        const totalItems = await itemsCollection.countDocuments(query);
 
-          if (category) {
-            if (!CATEGORIES.includes(category)) {
-              return res.status(400).send({
-                success: false,
-                message: "Invalid category",
-              });
-            }
+        // Overall dashboard statistics
+        const baseQuery = {
+          isDeleted: false,
+        };
 
-            query.category = category;
-          }
-
-          if (moderationStatus && moderationStatus !== "all") {
-            if (!MODERATION_STATUSES.includes(moderationStatus)) {
-              return res.status(400).send({
-                success: false,
-                message: "Invalid moderation status",
-              });
-            }
-
-            query.moderationStatus = moderationStatus;
-          }
-
-          if (postStatus && postStatus !== "all") {
-            if (!POST_STATUSES.includes(postStatus)) {
-              return res.status(400).send({
-                success: false,
-                message: "Invalid post status",
-              });
-            }
-
-            query.postStatus = postStatus;
-          }
-
-          if (search?.trim()) {
-            const escapedSearch = search
-              .trim()
-              .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-            query.itemName = {
-              $regex: escapedSearch,
-              $options: "i",
-            };
-          }
-
-          const currentPage = Math.max(1, Number(page) || 1);
-          const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
-
-          const totalItems = await itemsCollection.countDocuments(query);
-
-          // Dashboard counts - current filters বাদ দিয়ে সব non-deleted post
-          const baseQuery = { isDeleted: false };
-
-          const [
-            pendingCount,
-            approvedCount,
-            rejectedCount,
-            totalCount,
-            items,
-          ] = await Promise.all([
+        const [pendingCount, approvedCount, rejectedCount, totalCount, items] =
+          await Promise.all([
             itemsCollection.countDocuments({
               ...baseQuery,
               moderationStatus: "pending",
             }),
+
             itemsCollection.countDocuments({
               ...baseQuery,
               moderationStatus: "approved",
             }),
+
             itemsCollection.countDocuments({
               ...baseQuery,
               moderationStatus: "rejected",
             }),
+
             itemsCollection.countDocuments(baseQuery),
+
             itemsCollection
               .find(query)
               .sort({ createdAt: -1 })
@@ -1253,29 +1293,31 @@ async function run() {
               .toArray(),
           ]);
 
-          res.send({
-            success: true,
-            totalItems,
-            currentPage,
-            totalPages: Math.ceil(totalItems / perPage),
-            stats: {
-              total: totalCount,
-              pending: pendingCount,
-              approved: approvedCount,
-              rejected: rejectedCount,
-            },
-            items,
-          });
-        } catch (error) {
-          console.error("Admin get items error:", error);
+        // Response
+        res.send({
+          success: true,
+          totalItems,
+          currentPage,
+          totalPages: Math.ceil(totalItems / perPage),
 
-          res.status(500).send({
-            success: false,
-            message: "Failed to get posts",
-          });
-        }
-      },
-    );
+          stats: {
+            total: totalCount,
+            pending: pendingCount,
+            approved: approvedCount,
+            rejected: rejectedCount,
+          },
+
+          items,
+        });
+      } catch (error) {
+        console.error("Admin get items error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to get posts",
+        });
+      }
+    });
 
     // ! Update Moderation Status (Approve / Reject)
     app.patch(

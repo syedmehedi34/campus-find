@@ -18,8 +18,7 @@ export default Home;
 
 // 1. Hero Section
 // 2. Quick Action Section
-// 3. Latest Lost Items
-// 4. Recently Found Items
+// 3. Latest Lost/Found Items
 // 5. Search & Filter Section
 // 6. How It Works
 // 7. Campus Community Statistics

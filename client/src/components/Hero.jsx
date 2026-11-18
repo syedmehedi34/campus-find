@@ -89,7 +89,7 @@ const Hero = () => {
           {/* Buttons */}
           <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row lg:justify-start">
             <motion.a
-              href="/lost-items"
+              href="/posts"
               whileHover={{ scale: 1.04, y: -3 }}
               whileTap={{ scale: 0.97 }}
               className="group flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-7 py-4 font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700"
@@ -103,7 +103,7 @@ const Hero = () => {
             </motion.a>
 
             <motion.a
-              href="/post-item"
+              href="/create-post"
               whileHover={{ scale: 1.04, y: -3 }}
               whileTap={{ scale: 0.97 }}
               className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-7 py-4 font-semibold text-slate-800 shadow-sm transition hover:border-indigo-300 hover:text-indigo-600"

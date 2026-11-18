@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import useUserData from "../../hooks/useUserData";
 import Hero from "../../components/Hero";
+import QuickAction from "../../components/QuickAction";
 
 const Home = () => {
   const { loggedInUser } = useUserData();
@@ -10,6 +11,7 @@ const Home = () => {
   return (
     <div>
       <Hero />
+      <QuickAction />
     </div>
   );
 };

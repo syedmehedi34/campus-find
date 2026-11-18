@@ -339,7 +339,7 @@ const ProfileContent = ({ user, updateUserProfileAsync, updating }) => {
               Account Settings
             </div>
 
-            <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 md:text-4xl">
+            <h1 className="text-3xl font-extrabold tracking-tight text-slate-800 md:text-4xl ">
               My Profile
             </h1>
 

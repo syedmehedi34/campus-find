@@ -1164,7 +1164,7 @@ async function run() {
 
         // Filter by campus code
         if (campusCode?.trim()) {
-          query.universityCode = campusCode.trim().toUpperCase();
+          query.campusCode = campusCode.trim().toLowerCase();
         }
 
         // Filter by user email

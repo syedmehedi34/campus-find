@@ -972,8 +972,7 @@ async function run() {
     // ! Get All Posts for Admin
     app.get(
       "/admin/items",
-      verifyFirebaseToken,
-      verifyAdmin,
+
       async (req, res) => {
         try {
           const {
@@ -1108,8 +1107,7 @@ async function run() {
     // ! Update Moderation Status (Approve / Reject)
     app.patch(
       "/admin/items/:id/moderation",
-      verifyFirebaseToken,
-      verifyAdmin,
+
       async (req, res) => {
         try {
           const { id } = req.params;
@@ -1167,8 +1165,7 @@ async function run() {
     // ! Admin Update Post Status
     app.patch(
       "/admin/items/:id/status",
-      verifyFirebaseToken,
-      verifyAdmin,
+
       async (req, res) => {
         try {
           const { id } = req.params;
@@ -1226,8 +1223,7 @@ async function run() {
     // ! Admin Delete Post (Soft Delete)
     app.delete(
       "/admin/items/:id",
-      verifyFirebaseToken,
-      verifyAdmin,
+
       async (req, res) => {
         try {
           const { id } = req.params;

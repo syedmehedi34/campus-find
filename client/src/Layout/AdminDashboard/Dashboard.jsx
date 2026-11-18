@@ -4,6 +4,7 @@ import { Outlet, useNavigate } from "react-router";
 import Sidebar from "./Sidebar";
 import TopBar from "./Topbar";
 import { useAuth } from "../../providers/AuthProvider";
+import Loader from "../../components/Loader";
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
 
@@ -77,11 +78,7 @@ const AdminDashboard = () => {
   }, [logOut, navigate]);
 
   if (authLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-teal-500/30 border-t-teal-500" />
-      </div>
-    );
+    return <Loader />;
   }
 
   return (

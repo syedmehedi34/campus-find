@@ -76,7 +76,7 @@ const CATEGORIES = [
   "other",
 ];
 
-const POST_STATUSES = ["active", "cancelled", "resolved"];
+const POST_STATUSES = ["active", "inactive", "resolved"];
 
 const MODERATION_STATUSES = ["pending", "approved", "rejected"];
 

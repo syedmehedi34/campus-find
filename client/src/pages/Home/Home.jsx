@@ -4,24 +4,8 @@ import QuickAction from "../../components/QuickAction";
 import HowItWorks from "../../components/HowItWorks";
 import CampusStatistics from "../../components/CampusStatistics";
 import SafetyTips from "../../components/SafetyTips";
-import useUserData from "../../hooks/useUserData";
-import usePostData from "../../hooks/usePostData";
-import useCampuses from "../../hooks/useCampuses";
 
 const Home = () => {
-  //
-  const { allUsers, allUsersLoading } = useUserData({
-    fetchAll: true,
-  });
-  //   console.log(allUsers);
-
-  const { posts, totalItems } = usePostData();
-  console.log(posts);
-
-  const { campuses } = useCampuses();
-  //   console.log(campuses);
-
-  //
   return (
     <div>
       <Hero />

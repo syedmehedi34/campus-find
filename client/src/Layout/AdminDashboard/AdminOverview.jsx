@@ -543,13 +543,13 @@ const AdminOverview = () => {
             </div>
 
             {/* Right: queue */}
-            <div className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10 backdrop-blur-sm md:p-5">
+            <div className="rounded-2xl bg-white/6 p-4 ring-1 ring-white/10 backdrop-blur-sm md:p-5">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="cf-display text-lg font-semibold">
                   Review queue
                 </h2>
                 <Link
-                  to={ROUTES.posts}
+                  to={"/admin-dashboard/all-posts"}
                   className="flex items-center gap-2 text-[13px] font-medium text-[#3ddc97] transition hover:gap-3"
                 >
                   Open all posts <FaArrowRight size={11} />
@@ -561,7 +561,7 @@ const AdminOverview = () => {
                   {[0, 1, 2].map((i) => (
                     <div
                       key={i}
-                      className="h-[68px] animate-pulse rounded-xl bg-white/10"
+                      className="h-17 animate-pulse rounded-xl bg-white/10"
                     />
                   ))}
                 </div>

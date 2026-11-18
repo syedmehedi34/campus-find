@@ -20,7 +20,7 @@ const NAV_ITEMS = [
     label: "Manage Users",
     icon: FaUser,
   },
-  { path: "/admin-dashboard/all-posts", label: "All Posts", icon: List },
+  { path: "/admin-dashboard/all-posts", label: "Manage Posts", icon: List },
   {
     path: "/admin-dashboard/manage-campuses",
     label: "Manage Campuses",

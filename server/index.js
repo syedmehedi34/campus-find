@@ -81,6 +81,7 @@ async function run() {
 
     const usersCollection = database.collection("users");
     const itemsCollection = database.collection("items");
+    const campusesCollection = database.collection("campuses");
 
     // Create indexes
     await itemsCollection.createIndex({
@@ -94,6 +95,8 @@ async function run() {
       userId: 1,
       createdAt: -1,
     });
+
+    await campusesCollection.createIndex({ campusCode: 1 }, { unique: true });
 
     app.get("/", (req, res) => {
       res.send("Campus Find Server is Running");
@@ -289,6 +292,165 @@ async function run() {
         res.status(500).send({
           success: false,
           message: "Failed to delete user",
+        });
+      }
+    });
+
+    //
+    //
+
+    // =====================================
+    //          CAMPUS MANAGEMENT
+    // =====================================
+
+    //! Get all campuses
+    app.get("/campuses", async (req, res) => {
+      try {
+        const campuses = await campusesCollection
+          .find({})
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send({
+          success: true,
+          campuses,
+        });
+      } catch (error) {
+        console.error("Get campuses error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to get campuses",
+        });
+      }
+    });
+
+    //! Add new campus
+    app.post("/campuses", async (req, res) => {
+      try {
+        const { campusName, campusCode } = req.body;
+
+        if (
+          typeof campusName !== "string" ||
+          typeof campusCode !== "string" ||
+          !campusName.trim() ||
+          !campusCode.trim()
+        ) {
+          return res.status(400).send({
+            success: false,
+            message: "Campus name and code are required",
+          });
+        }
+
+        const normalizedCode = campusCode.trim().toUpperCase();
+
+        // Check duplicate campus code
+        const existingCampus = await campusesCollection.findOne({
+          campusCode: normalizedCode,
+        });
+
+        if (existingCampus) {
+          return res.status(409).send({
+            success: false,
+            message: "This campus code already exists",
+          });
+        }
+
+        const newCampus = {
+          campusName: campusName.trim(),
+          campusCode: normalizedCode,
+          createdAt: new Date(),
+        };
+
+        const result = await campusesCollection.insertOne(newCampus);
+
+        res.status(201).send({
+          success: true,
+          message: "Campus added successfully",
+          campus: {
+            _id: result.insertedId,
+            ...newCampus,
+          },
+        });
+      } catch (error) {
+        console.error("Add campus error:", error);
+
+        // Duplicate key protection
+        if (error.code === 11000) {
+          return res.status(409).send({
+            success: false,
+            message: "This campus code already exists",
+          });
+        }
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to add campus",
+        });
+      }
+    });
+
+    //! Delete campus
+    app.delete("/campuses/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
+
+        if (!ObjectId.isValid(id)) {
+          return res.status(400).send({
+            success: false,
+            message: "Invalid campus ID",
+          });
+        }
+
+        const campus = await campusesCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!campus) {
+          return res.status(404).send({
+            success: false,
+            message: "Campus not found",
+          });
+        }
+
+        // Prevent deletion if users are assigned to this campus
+        const assignedUsers = await usersCollection.countDocuments({
+          collegeId: campus.campusCode,
+        });
+
+        if (assignedUsers > 0) {
+          return res.status(409).send({
+            success: false,
+            message: `Cannot delete this campus. ${assignedUsers} user(s) are assigned to it.`,
+          });
+        }
+
+        // Prevent deletion if posts are associated with this campus
+        const relatedPosts = await itemsCollection.countDocuments({
+          universityCode: campus.campusCode,
+        });
+
+        if (relatedPosts > 0) {
+          return res.status(409).send({
+            success: false,
+            message: `Cannot delete this campus. ${relatedPosts} post(s) are associated with it.`,
+          });
+        }
+
+        await campusesCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        res.send({
+          success: true,
+          message: "Campus deleted successfully",
+        });
+      } catch (error) {
+        console.error("Delete campus error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to delete campus",
         });
       }
     });

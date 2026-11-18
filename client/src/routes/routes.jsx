@@ -24,6 +24,7 @@ import AdminDashboard from "../Layout/AdminDashboard/Dashboard";
 import Loader from "../components/Loader";
 import ManageUsers from "../Layout/AdminDashboard/ManageUsers";
 import AllPostsManage from "../Layout/AdminDashboard/AllPostsManage";
+import ManageCampus from "../Layout/AdminDashboard/ManageCampus";
 
 // ===================================
 // Protected Route - Logged In Users
@@ -201,10 +202,10 @@ export const router = createBrowserRouter([
             path: "/admin-dashboard/all-posts",
             element: <AllPostsManage />,
           },
-          // {
-          //   path: "/admin-dashboard/manage-campuses",
-          //   element: <ManageCampuses />,
-          // },
+          {
+            path: "/admin-dashboard/manage-campuses",
+            element: <ManageCampus />,
+          },
           {
             path: "/admin-dashboard/create-new-post",
             element: <NewPost />,

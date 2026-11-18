@@ -397,7 +397,7 @@ async function run() {
 
           postStatus: "active",
 
-          moderationStatus: "approved",
+          moderationStatus: "pending",
 
           contactPreference: contactPreference || "",
 
@@ -957,6 +957,323 @@ async function run() {
         });
       }
     });
+
+    // =====================================
+    //          ADMIN ITEMS MANAGEMENT
+    // =====================================
+
+    // Allowed moderation statuses
+    const MODERATION_STATUSES = ["pending", "approved", "rejected"];
+
+    // Allowed post statuses
+    // তোমার আগের POST_STATUSES array-টাই ব্যবহার হবে:
+    // ["active", "cancelled", "resolved"]
+
+    // ! Get All Posts for Admin
+    app.get(
+      "/admin/items",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const {
+            type,
+            category,
+            search,
+            moderationStatus,
+            postStatus,
+            page = 1,
+            limit = 12,
+          } = req.query;
+
+          const query = {
+            isDeleted: false,
+          };
+
+          if (type && type !== "all") {
+            if (!ITEM_TYPES.includes(type)) {
+              return res.status(400).send({
+                success: false,
+                message: "Invalid item type",
+              });
+            }
+
+            query.type = type;
+          }
+
+          if (category) {
+            if (!CATEGORIES.includes(category)) {
+              return res.status(400).send({
+                success: false,
+                message: "Invalid category",
+              });
+            }
+
+            query.category = category;
+          }
+
+          if (moderationStatus && moderationStatus !== "all") {
+            if (!MODERATION_STATUSES.includes(moderationStatus)) {
+              return res.status(400).send({
+                success: false,
+                message: "Invalid moderation status",
+              });
+            }
+
+            query.moderationStatus = moderationStatus;
+          }
+
+          if (postStatus && postStatus !== "all") {
+            if (!POST_STATUSES.includes(postStatus)) {
+              return res.status(400).send({
+                success: false,
+                message: "Invalid post status",
+              });
+            }
+
+            query.postStatus = postStatus;
+          }
+
+          if (search?.trim()) {
+            const escapedSearch = search
+              .trim()
+              .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+            query.itemName = {
+              $regex: escapedSearch,
+              $options: "i",
+            };
+          }
+
+          const currentPage = Math.max(1, Number(page) || 1);
+          const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
+
+          const totalItems = await itemsCollection.countDocuments(query);
+
+          // Dashboard counts - current filters বাদ দিয়ে সব non-deleted post
+          const baseQuery = { isDeleted: false };
+
+          const [
+            pendingCount,
+            approvedCount,
+            rejectedCount,
+            totalCount,
+            items,
+          ] = await Promise.all([
+            itemsCollection.countDocuments({
+              ...baseQuery,
+              moderationStatus: "pending",
+            }),
+            itemsCollection.countDocuments({
+              ...baseQuery,
+              moderationStatus: "approved",
+            }),
+            itemsCollection.countDocuments({
+              ...baseQuery,
+              moderationStatus: "rejected",
+            }),
+            itemsCollection.countDocuments(baseQuery),
+            itemsCollection
+              .find(query)
+              .sort({ createdAt: -1 })
+              .skip((currentPage - 1) * perPage)
+              .limit(perPage)
+              .toArray(),
+          ]);
+
+          res.send({
+            success: true,
+            totalItems,
+            currentPage,
+            totalPages: Math.ceil(totalItems / perPage),
+            stats: {
+              total: totalCount,
+              pending: pendingCount,
+              approved: approvedCount,
+              rejected: rejectedCount,
+            },
+            items,
+          });
+        } catch (error) {
+          console.error("Admin get items error:", error);
+
+          res.status(500).send({
+            success: false,
+            message: "Failed to get posts",
+          });
+        }
+      },
+    );
+
+    // ! Update Moderation Status (Approve / Reject)
+    app.patch(
+      "/admin/items/:id/moderation",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { moderationStatus } = req.body;
+
+          if (!isValidId(id)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid item ID",
+            });
+          }
+
+          if (!MODERATION_STATUSES.includes(moderationStatus)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid moderation status",
+            });
+          }
+
+          const result = await itemsCollection.updateOne(
+            {
+              _id: new ObjectId(id),
+              isDeleted: false,
+            },
+            {
+              $set: {
+                moderationStatus,
+                updatedAt: new Date(),
+              },
+            },
+          );
+
+          if (result.matchedCount === 0) {
+            return res.status(404).send({
+              success: false,
+              message: "Post not found",
+            });
+          }
+
+          res.send({
+            success: true,
+            message: `Post ${moderationStatus} successfully`,
+          });
+        } catch (error) {
+          console.error("Moderation update error:", error);
+
+          res.status(500).send({
+            success: false,
+            message: "Failed to update moderation status",
+          });
+        }
+      },
+    );
+
+    // ! Admin Update Post Status
+    app.patch(
+      "/admin/items/:id/status",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+          const { postStatus } = req.body;
+
+          if (!isValidId(id)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid item ID",
+            });
+          }
+
+          if (!POST_STATUSES.includes(postStatus)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid post status",
+            });
+          }
+
+          const result = await itemsCollection.updateOne(
+            {
+              _id: new ObjectId(id),
+              isDeleted: false,
+            },
+            {
+              $set: {
+                postStatus,
+                updatedAt: new Date(),
+              },
+            },
+          );
+
+          if (result.matchedCount === 0) {
+            return res.status(404).send({
+              success: false,
+              message: "Post not found",
+            });
+          }
+
+          res.send({
+            success: true,
+            message: "Post status updated successfully",
+          });
+        } catch (error) {
+          console.error("Admin status update error:", error);
+
+          res.status(500).send({
+            success: false,
+            message: "Failed to update post status",
+          });
+        }
+      },
+    );
+
+    // ! Admin Delete Post (Soft Delete)
+    app.delete(
+      "/admin/items/:id",
+      verifyFirebaseToken,
+      verifyAdmin,
+      async (req, res) => {
+        try {
+          const { id } = req.params;
+
+          if (!isValidId(id)) {
+            return res.status(400).send({
+              success: false,
+              message: "Invalid item ID",
+            });
+          }
+
+          const result = await itemsCollection.updateOne(
+            {
+              _id: new ObjectId(id),
+              isDeleted: false,
+            },
+            {
+              $set: {
+                isDeleted: true,
+                deletedAt: new Date(),
+                updatedAt: new Date(),
+              },
+            },
+          );
+
+          if (result.matchedCount === 0) {
+            return res.status(404).send({
+              success: false,
+              message: "Post not found",
+            });
+          }
+
+          res.send({
+            success: true,
+            message: "Post deleted successfully",
+          });
+        } catch (error) {
+          console.error("Admin delete error:", error);
+
+          res.status(500).send({
+            success: false,
+            message: "Failed to delete post",
+          });
+        }
+      },
+    );
 
     // =====================================
     //              SERVER

@@ -15,12 +15,12 @@ import { FilePlusCorner, List, Notebook } from "lucide-react";
 const NAV_ITEMS = [
   { path: "/admin-dashboard", label: "Dashboard", icon: FaTachometerAlt },
   { path: "/admin-dashboard/my-profile", label: "My Profile", icon: FaUser },
-  { path: "/admin-dashboard/all-posts", label: "All Posts", icon: List },
   {
     path: "/admin-dashboard/manage-users",
     label: "Manage Users",
     icon: FaUser,
   },
+  { path: "/admin-dashboard/all-posts", label: "All Posts", icon: List },
   {
     path: "/admin-dashboard/manage-campuses",
     label: "Manage Campuses",

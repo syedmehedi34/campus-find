@@ -18,7 +18,7 @@ const Footer = () => {
               </div>
 
               <h2 className="text-2xl font-bold text-white tracking-tight">
-                Lost<span className="text-blue-500">Hub</span>
+                Campus<span className="text-blue-500">Find</span>
                 <span className="text-blue-500">.</span>
               </h2>
             </Link>
@@ -145,10 +145,10 @@ const Footer = () => {
                 <Mail size={18} className="text-blue-500 shrink-0 mt-0.5" />
 
                 <a
-                  href="mailto:support@losthub.com"
+                  href="mailto:support@campus-find.com"
                   className="hover:text-blue-400 transition"
                 >
-                  support@losthub.com
+                  support@campus-find.com
                 </a>
               </li>
 
@@ -167,7 +167,7 @@ const Footer = () => {
 
             {/* CTA */}
             <Link
-              to="/lost-items"
+              to="/posts"
               className="inline-flex items-center gap-2 mt-6 text-sm font-semibold text-blue-400 hover:text-blue-300 transition"
             >
               Explore Lost Items

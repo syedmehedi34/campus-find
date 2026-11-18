@@ -177,7 +177,7 @@ const NewPost = () => {
           <section className="np-hero">
             <div className="np-hero-content">
               <div className="np-breadcrumb">
-                <span>LOSTHUB</span>
+                <span>CampusFind</span>
                 <span className="np-breadcrumb-dot">/</span>
                 <span>Create Post</span>
               </div>

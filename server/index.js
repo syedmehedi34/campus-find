@@ -1,5 +1,5 @@
 // ! Database = campus_find
-// ! Collections = users, items
+// ! Collections = users, items, campuses
 
 // npx nodemon index.js
 // node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
@@ -13,6 +13,10 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5001;
+
+// =====================================
+//              MIDDLEWARE
+// =====================================
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -34,6 +38,10 @@ app.use(
 
 app.use(express.json());
 
+// =====================================
+//              MONGODB
+// =====================================
+
 const uri = `mongodb+srv://${encodeURIComponent(
   process.env.DB_USER,
 )}:${encodeURIComponent(
@@ -48,7 +56,10 @@ const client = new MongoClient(uri, {
   },
 });
 
-// Allowed values
+// =====================================
+//              CONSTANTS
+// =====================================
+
 const ITEM_TYPES = ["lost", "found"];
 
 const CATEGORIES = [
@@ -67,10 +78,34 @@ const CATEGORIES = [
 
 const POST_STATUSES = ["active", "cancelled", "resolved"];
 
-// Validate MongoDB ObjectId
+const MODERATION_STATUSES = ["pending", "approved", "rejected"];
+
+// =====================================
+//              HELPERS
+// =====================================
+
 const isValidId = (id) => ObjectId.isValid(id);
 
-//! Main Function
+const normalizeCampusCode = (code) => {
+  if (typeof code !== "string") return "";
+  return code.trim().toLowerCase();
+};
+
+const escapeRegex = (value) => {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+};
+
+const getPagination = (page, limit) => {
+  const currentPage = Math.max(1, Number(page) || 1);
+  const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
+
+  return { currentPage, perPage };
+};
+
+// =====================================
+//              MAIN FUNCTION
+// =====================================
+
 async function run() {
   try {
     await client.connect();
@@ -83,9 +118,12 @@ async function run() {
     const itemsCollection = database.collection("items");
     const campusesCollection = database.collection("campuses");
 
-    // Create indexes
+    // =====================================
+    //              INDEXES
+    // =====================================
+
     await itemsCollection.createIndex({
-      universityCode: 1,
+      campusCode: 1,
       type: 1,
       postStatus: 1,
       createdAt: -1,
@@ -98,6 +136,10 @@ async function run() {
 
     await campusesCollection.createIndex({ campusCode: 1 }, { unique: true });
 
+    // =====================================
+    //              HOME
+    // =====================================
+
     app.get("/", (req, res) => {
       res.send("Campus Find Server is Running");
     });
@@ -106,7 +148,7 @@ async function run() {
     //              USER CRUD
     // =====================================
 
-    //! Save User
+    // ! Save User
     app.post("/users", async (req, res) => {
       try {
         const { userId, email, name, collegeId, photoUrl } = req.body;
@@ -120,7 +162,7 @@ async function run() {
 
         const userData = {
           userId,
-          email,
+          email: email.trim().toLowerCase(),
           name,
           collegeId: collegeId || null,
           photoUrl: photoUrl || "",
@@ -145,7 +187,7 @@ async function run() {
             : "User already exists",
         });
       } catch (error) {
-        console.error(error);
+        console.error("Save user error:", error);
 
         res.status(500).send({
           success: false,
@@ -154,20 +196,22 @@ async function run() {
       }
     });
 
-    //! Get All Users
+    // ! Get All Users
     app.get("/users", async (req, res) => {
       try {
         const users = await usersCollection.find().toArray();
 
         res.send(users);
       } catch (error) {
+        console.error("Get users error:", error);
+
         res.status(500).send({
           message: "Failed to get users",
         });
       }
     });
 
-    //! Get Single User
+    // ! Get Single User
     app.get("/users/:userId", async (req, res) => {
       try {
         const user = await usersCollection.findOne({
@@ -182,13 +226,15 @@ async function run() {
 
         res.send(user);
       } catch (error) {
+        console.error("Get user error:", error);
+
         res.status(500).send({
           message: "Failed to get user",
         });
       }
     });
 
-    //! Update User - Dynamic PATCH
+    // ! Update User
     app.patch("/users/:userId", async (req, res) => {
       try {
         const { userId } = req.params;
@@ -200,24 +246,20 @@ async function run() {
           });
         }
 
-        // Frontend থেকে পাঠানো সব data নেওয়া হচ্ছে
         const updateData = { ...req.body };
 
-        // গুরুত্বপূর্ণ field সরাসরি update করা যাবে না
         const protectedFields = ["_id", "userId", "createdAt", "updatedAt"];
 
         protectedFields.forEach((field) => {
           delete updateData[field];
         });
 
-        // MongoDB operator বা nested key injection আটকানো
         Object.keys(updateData).forEach((key) => {
           if (key.startsWith("$") || key.includes(".")) {
             delete updateData[key];
           }
         });
 
-        // Role validation
         if (
           updateData.role !== undefined &&
           !["user", "admin"].includes(updateData.role)
@@ -239,9 +281,7 @@ async function run() {
 
         const result = await usersCollection.updateOne(
           { userId },
-          {
-            $set: updateData,
-          },
+          { $set: updateData },
         );
 
         if (result.matchedCount === 0) {
@@ -263,12 +303,11 @@ async function run() {
         res.status(500).send({
           success: false,
           message: "Failed to update user",
-          error: error.message,
         });
       }
     });
 
-    //! Delete User
+    // ! Delete User
     app.delete("/users/:userId", async (req, res) => {
       try {
         const result = await usersCollection.deleteOne({
@@ -287,7 +326,7 @@ async function run() {
           message: "User deleted successfully",
         });
       } catch (error) {
-        console.error(error);
+        console.error("Delete user error:", error);
 
         res.status(500).send({
           success: false,
@@ -296,14 +335,11 @@ async function run() {
       }
     });
 
-    //
-    //
-
     // =====================================
     //          CAMPUS MANAGEMENT
     // =====================================
 
-    //! Get all campuses
+    // ! Get All Campuses
     app.get("/campuses", async (req, res) => {
       try {
         const campuses = await campusesCollection
@@ -325,7 +361,7 @@ async function run() {
       }
     });
 
-    //! Add new campus
+    // ! Add New Campus
     app.post("/campuses", async (req, res) => {
       try {
         const { campusName, campusCode } = req.body;
@@ -344,7 +380,6 @@ async function run() {
 
         const normalizedCode = campusCode.trim().toUpperCase();
 
-        // Check duplicate campus code
         const existingCampus = await campusesCollection.findOne({
           campusCode: normalizedCode,
         });
@@ -375,7 +410,6 @@ async function run() {
       } catch (error) {
         console.error("Add campus error:", error);
 
-        // Duplicate key protection
         if (error.code === 11000) {
           return res.status(409).send({
             success: false,
@@ -390,12 +424,12 @@ async function run() {
       }
     });
 
-    //! Delete campus
+    // ! Delete Campus
     app.delete("/campuses/:id", async (req, res) => {
       try {
         const { id } = req.params;
 
-        if (!ObjectId.isValid(id)) {
+        if (!isValidId(id)) {
           return res.status(400).send({
             success: false,
             message: "Invalid campus ID",
@@ -413,9 +447,14 @@ async function run() {
           });
         }
 
-        // Prevent deletion if users are assigned to this campus
+        const campusCode = normalizeCampusCode(campus.campusCode);
+
+        // Check assigned users
         const assignedUsers = await usersCollection.countDocuments({
-          collegeId: campus.campusCode,
+          collegeId: {
+            $regex: `^${escapeRegex(campus.campusCode.trim())}$`,
+            $options: "i",
+          },
         });
 
         if (assignedUsers > 0) {
@@ -425,9 +464,9 @@ async function run() {
           });
         }
 
-        // Prevent deletion if posts are associated with this campus
+        // Check associated posts
         const relatedPosts = await itemsCollection.countDocuments({
-          universityCode: campus.campusCode,
+          campusCode,
         });
 
         if (relatedPosts > 0) {
@@ -459,7 +498,7 @@ async function run() {
     //              ITEMS CRUD
     // =====================================
 
-    //! Create Lost / Found Post
+    // ! Create Lost / Found Post
     app.post("/items", async (req, res) => {
       try {
         const {
@@ -476,7 +515,6 @@ async function run() {
           contactPreference,
         } = req.body;
 
-        // Required field validation
         if (
           !userId ||
           !type ||
@@ -492,7 +530,6 @@ async function run() {
           });
         }
 
-        // Type validation
         if (!ITEM_TYPES.includes(type)) {
           return res.status(400).send({
             success: false,
@@ -500,7 +537,6 @@ async function run() {
           });
         }
 
-        // Category validation
         if (!CATEGORIES.includes(category)) {
           return res.status(400).send({
             success: false,
@@ -508,7 +544,6 @@ async function run() {
           });
         }
 
-        // Image validation
         if (images !== undefined && !Array.isArray(images)) {
           return res.status(400).send({
             success: false,
@@ -516,7 +551,6 @@ async function run() {
           });
         }
 
-        // Date validation
         const itemDate = new Date(date);
 
         if (isNaN(itemDate.getTime())) {
@@ -526,7 +560,6 @@ async function run() {
           });
         }
 
-        // Find user
         const user = await usersCollection.findOne({ userId });
 
         if (!user) {
@@ -536,15 +569,16 @@ async function run() {
           });
         }
 
-        // University validation
         if (!user.collegeId) {
           return res.status(400).send({
             success: false,
-            message: "Please select your university first",
+            message: "Please select your campus first",
           });
         }
 
-        // Create item document
+        // ! Campus code comes from database user data
+        const campusCode = normalizeCampusCode(user.collegeId);
+
         const newItem = {
           type,
           itemName: itemName.trim(),
@@ -560,20 +594,16 @@ async function run() {
 
           date: itemDate,
           approximateTime: approximateTime || "",
-
           identifyingFeatures: identifyingFeatures || "",
 
           userId: user.userId,
 
-          // From database, not request body
-          universityCode: user.collegeId,
+          // ! Use campusCode instead of universityCode
+          campusCode,
 
           postStatus: "active",
-
           moderationStatus: "pending",
-
           contactPreference: contactPreference || "",
-
           isDeleted: false,
 
           createdAt: new Date(),
@@ -597,7 +627,7 @@ async function run() {
       }
     });
 
-    //! Get All Items (University Wise)
+    // ! Get All Items (Campus Wise)
     app.get("/items", async (req, res) => {
       try {
         const {
@@ -616,25 +646,24 @@ async function run() {
           });
         }
 
-        // Find logged in user
         const user = await usersCollection.findOne({ userId });
 
         if (!user || !user.collegeId) {
           return res.status(404).send({
             success: false,
-            message: "User or university not found",
+            message: "User or campus not found",
           });
         }
 
-        // Base query
+        const campusCode = normalizeCampusCode(user.collegeId);
+
         const query = {
-          universityCode: user.collegeId,
+          campusCode,
           postStatus: "active",
           moderationStatus: "approved",
           isDeleted: false,
         };
 
-        // Filter by type
         if (type) {
           if (!ITEM_TYPES.includes(type)) {
             return res.status(400).send({
@@ -646,7 +675,6 @@ async function run() {
           query.type = type;
         }
 
-        // Filter by category
         if (category) {
           if (!CATEGORIES.includes(category)) {
             return res.status(400).send({
@@ -658,16 +686,14 @@ async function run() {
           query.category = category;
         }
 
-        // Search by item name
-        if (search) {
+        if (search?.trim()) {
           query.itemName = {
-            $regex: search,
+            $regex: escapeRegex(search.trim()),
             $options: "i",
           };
         }
 
-        const currentPage = Math.max(1, Number(page) || 1);
-        const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
+        const { currentPage, perPage } = getPagination(page, limit);
 
         const totalItems = await itemsCollection.countDocuments(query);
 
@@ -695,7 +721,7 @@ async function run() {
       }
     });
 
-    //! Get My Posts (Logged-in User)
+    // ! Get My Posts
     app.get("/items/my-posts", async (req, res) => {
       try {
         const {
@@ -714,24 +740,23 @@ async function run() {
           });
         }
 
-        // Find logged-in user
         const user = await usersCollection.findOne({ userId });
 
         if (!user || !user.collegeId) {
           return res.status(404).send({
             success: false,
-            message: "User or university not found",
+            message: "User or campus not found",
           });
         }
 
-        // Only this user's posts
+        const campusCode = normalizeCampusCode(user.collegeId);
+
         const query = {
           userId: user.userId,
-          universityCode: user.collegeId,
+          campusCode,
           isDeleted: false,
         };
 
-        // Filter by Lost / Found
         if (type && type !== "all") {
           if (!ITEM_TYPES.includes(type)) {
             return res.status(400).send({
@@ -743,8 +768,7 @@ async function run() {
           query.type = type;
         }
 
-        // Filter by category
-        if (category) {
+        if (category && category !== "all") {
           if (!CATEGORIES.includes(category)) {
             return res.status(400).send({
               success: false,
@@ -755,20 +779,14 @@ async function run() {
           query.category = category;
         }
 
-        // Search by item name
         if (search?.trim()) {
-          const escapedSearch = search
-            .trim()
-            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
           query.itemName = {
-            $regex: escapedSearch,
+            $regex: escapeRegex(search.trim()),
             $options: "i",
           };
         }
 
-        const currentPage = Math.max(1, Number(page) || 1);
-        const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
+        const { currentPage, perPage } = getPagination(page, limit);
 
         const totalItems = await itemsCollection.countDocuments(query);
 
@@ -796,7 +814,7 @@ async function run() {
       }
     });
 
-    //! Get Single Item
+    // ! Get Single Item
     app.get("/items/:id", async (req, res) => {
       try {
         const { id } = req.params;
@@ -814,13 +832,15 @@ async function run() {
         if (!user || !user.collegeId) {
           return res.status(404).send({
             success: false,
-            message: "User or university not found",
+            message: "User or campus not found",
           });
         }
 
+        const campusCode = normalizeCampusCode(user.collegeId);
+
         const item = await itemsCollection.findOne({
           _id: new ObjectId(id),
-          universityCode: user.collegeId,
+          campusCode,
           isDeleted: false,
           moderationStatus: "approved",
         });
@@ -837,7 +857,7 @@ async function run() {
           item,
         });
       } catch (error) {
-        console.error(error);
+        console.error("Get single item error:", error);
 
         res.status(500).send({
           success: false,
@@ -846,7 +866,7 @@ async function run() {
       }
     });
 
-    //! Update Item
+    // ! Update Item
     app.patch("/items/:id", async (req, res) => {
       try {
         const { id } = req.params;
@@ -861,17 +881,19 @@ async function run() {
 
         const user = await usersCollection.findOne({ userId });
 
-        if (!user) {
+        if (!user || !user.collegeId) {
           return res.status(404).send({
             success: false,
-            message: "User not found",
+            message: "User or campus not found",
           });
         }
+
+        const campusCode = normalizeCampusCode(user.collegeId);
 
         const item = await itemsCollection.findOne({
           _id: new ObjectId(id),
           userId,
-          universityCode: user.collegeId,
+          campusCode,
           isDeleted: false,
         });
 
@@ -908,7 +930,7 @@ async function run() {
         }
 
         if (itemName !== undefined) {
-          if (!itemName.trim()) {
+          if (typeof itemName !== "string" || !itemName.trim()) {
             return res.status(400).send({
               message: "Item name cannot be empty",
             });
@@ -990,7 +1012,7 @@ async function run() {
           {
             _id: new ObjectId(id),
             userId,
-            universityCode: user.collegeId,
+            campusCode,
             isDeleted: false,
           },
           {
@@ -1013,7 +1035,7 @@ async function run() {
       }
     });
 
-    //! Update Post Status
+    // ! Update Post Status
     app.patch("/items/:id/status", async (req, res) => {
       try {
         const { id } = req.params;
@@ -1033,17 +1055,19 @@ async function run() {
 
         const user = await usersCollection.findOne({ userId });
 
-        if (!user) {
+        if (!user || !user.collegeId) {
           return res.status(404).send({
-            message: "User not found",
+            message: "User or campus not found",
           });
         }
+
+        const campusCode = normalizeCampusCode(user.collegeId);
 
         const result = await itemsCollection.updateOne(
           {
             _id: new ObjectId(id),
             userId,
-            universityCode: user.collegeId,
+            campusCode,
             isDeleted: false,
           },
           {
@@ -1065,7 +1089,7 @@ async function run() {
           message: "Post status updated successfully",
         });
       } catch (error) {
-        console.error(error);
+        console.error("Update post status error:", error);
 
         res.status(500).send({
           success: false,
@@ -1074,7 +1098,7 @@ async function run() {
       }
     });
 
-    //! Delete Item (Soft Delete)
+    // ! Delete Item (Soft Delete)
     app.delete("/items/:id", async (req, res) => {
       try {
         const { id } = req.params;
@@ -1088,17 +1112,19 @@ async function run() {
 
         const user = await usersCollection.findOne({ userId });
 
-        if (!user) {
+        if (!user || !user.collegeId) {
           return res.status(404).send({
-            message: "User not found",
+            message: "User or campus not found",
           });
         }
+
+        const campusCode = normalizeCampusCode(user.collegeId);
 
         const result = await itemsCollection.updateOne(
           {
             _id: new ObjectId(id),
             userId,
-            universityCode: user.collegeId,
+            campusCode,
             isDeleted: false,
           },
           {
@@ -1135,13 +1161,6 @@ async function run() {
     //          ADMIN ITEMS MANAGEMENT
     // =====================================
 
-    // Allowed moderation statuses
-    const MODERATION_STATUSES = ["pending", "approved", "rejected"];
-
-    // Allowed post statuses
-    // তোমার আগের POST_STATUSES array-টাই ব্যবহার হবে:
-    // ["active", "cancelled", "resolved"]
-
     // ! Get All Posts for Admin
     app.get("/admin/items", async (req, res) => {
       try {
@@ -1164,7 +1183,7 @@ async function run() {
 
         // Filter by campus code
         if (campusCode?.trim()) {
-          query.campusCode = campusCode.trim().toLowerCase();
+          query.campusCode = normalizeCampusCode(campusCode);
         }
 
         // Filter by user email
@@ -1244,19 +1263,14 @@ async function run() {
 
         // Search by item name
         if (search?.trim()) {
-          const escapedSearch = search
-            .trim()
-            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
           query.itemName = {
-            $regex: escapedSearch,
+            $regex: escapeRegex(search.trim()),
             $options: "i",
           };
         }
 
         // Pagination
-        const currentPage = Math.max(1, Number(page) || 1);
-        const perPage = Math.min(50, Math.max(1, Number(limit) || 12));
+        const { currentPage, perPage } = getPagination(page, limit);
 
         // Total filtered posts
         const totalItems = await itemsCollection.countDocuments(query);
@@ -1293,7 +1307,6 @@ async function run() {
               .toArray(),
           ]);
 
-        // Response
         res.send({
           success: true,
           totalItems,
@@ -1319,172 +1332,160 @@ async function run() {
       }
     });
 
-    // ! Update Moderation Status (Approve / Reject)
-    app.patch(
-      "/admin/items/:id/moderation",
+    // ! Update Moderation Status
+    app.patch("/admin/items/:id/moderation", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { moderationStatus } = req.body;
 
-      async (req, res) => {
-        try {
-          const { id } = req.params;
-          const { moderationStatus } = req.body;
-
-          if (!isValidId(id)) {
-            return res.status(400).send({
-              success: false,
-              message: "Invalid item ID",
-            });
-          }
-
-          if (!MODERATION_STATUSES.includes(moderationStatus)) {
-            return res.status(400).send({
-              success: false,
-              message: "Invalid moderation status",
-            });
-          }
-
-          const result = await itemsCollection.updateOne(
-            {
-              _id: new ObjectId(id),
-              isDeleted: false,
-            },
-            {
-              $set: {
-                moderationStatus,
-                updatedAt: new Date(),
-              },
-            },
-          );
-
-          if (result.matchedCount === 0) {
-            return res.status(404).send({
-              success: false,
-              message: "Post not found",
-            });
-          }
-
-          res.send({
-            success: true,
-            message: `Post ${moderationStatus} successfully`,
-          });
-        } catch (error) {
-          console.error("Moderation update error:", error);
-
-          res.status(500).send({
+        if (!isValidId(id)) {
+          return res.status(400).send({
             success: false,
-            message: "Failed to update moderation status",
+            message: "Invalid item ID",
           });
         }
-      },
-    );
+
+        if (!MODERATION_STATUSES.includes(moderationStatus)) {
+          return res.status(400).send({
+            success: false,
+            message: "Invalid moderation status",
+          });
+        }
+
+        const result = await itemsCollection.updateOne(
+          {
+            _id: new ObjectId(id),
+            isDeleted: false,
+          },
+          {
+            $set: {
+              moderationStatus,
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({
+            success: false,
+            message: "Post not found",
+          });
+        }
+
+        res.send({
+          success: true,
+          message: `Post ${moderationStatus} successfully`,
+        });
+      } catch (error) {
+        console.error("Moderation update error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to update moderation status",
+        });
+      }
+    });
 
     // ! Admin Update Post Status
-    app.patch(
-      "/admin/items/:id/status",
+    app.patch("/admin/items/:id/status", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { postStatus } = req.body;
 
-      async (req, res) => {
-        try {
-          const { id } = req.params;
-          const { postStatus } = req.body;
-
-          if (!isValidId(id)) {
-            return res.status(400).send({
-              success: false,
-              message: "Invalid item ID",
-            });
-          }
-
-          if (!POST_STATUSES.includes(postStatus)) {
-            return res.status(400).send({
-              success: false,
-              message: "Invalid post status",
-            });
-          }
-
-          const result = await itemsCollection.updateOne(
-            {
-              _id: new ObjectId(id),
-              isDeleted: false,
-            },
-            {
-              $set: {
-                postStatus,
-                updatedAt: new Date(),
-              },
-            },
-          );
-
-          if (result.matchedCount === 0) {
-            return res.status(404).send({
-              success: false,
-              message: "Post not found",
-            });
-          }
-
-          res.send({
-            success: true,
-            message: "Post status updated successfully",
-          });
-        } catch (error) {
-          console.error("Admin status update error:", error);
-
-          res.status(500).send({
+        if (!isValidId(id)) {
+          return res.status(400).send({
             success: false,
-            message: "Failed to update post status",
+            message: "Invalid item ID",
           });
         }
-      },
-    );
+
+        if (!POST_STATUSES.includes(postStatus)) {
+          return res.status(400).send({
+            success: false,
+            message: "Invalid post status",
+          });
+        }
+
+        const result = await itemsCollection.updateOne(
+          {
+            _id: new ObjectId(id),
+            isDeleted: false,
+          },
+          {
+            $set: {
+              postStatus,
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({
+            success: false,
+            message: "Post not found",
+          });
+        }
+
+        res.send({
+          success: true,
+          message: "Post status updated successfully",
+        });
+      } catch (error) {
+        console.error("Admin status update error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to update post status",
+        });
+      }
+    });
 
     // ! Admin Delete Post (Soft Delete)
-    app.delete(
-      "/admin/items/:id",
+    app.delete("/admin/items/:id", async (req, res) => {
+      try {
+        const { id } = req.params;
 
-      async (req, res) => {
-        try {
-          const { id } = req.params;
-
-          if (!isValidId(id)) {
-            return res.status(400).send({
-              success: false,
-              message: "Invalid item ID",
-            });
-          }
-
-          const result = await itemsCollection.updateOne(
-            {
-              _id: new ObjectId(id),
-              isDeleted: false,
-            },
-            {
-              $set: {
-                isDeleted: true,
-                deletedAt: new Date(),
-                updatedAt: new Date(),
-              },
-            },
-          );
-
-          if (result.matchedCount === 0) {
-            return res.status(404).send({
-              success: false,
-              message: "Post not found",
-            });
-          }
-
-          res.send({
-            success: true,
-            message: "Post deleted successfully",
-          });
-        } catch (error) {
-          console.error("Admin delete error:", error);
-
-          res.status(500).send({
+        if (!isValidId(id)) {
+          return res.status(400).send({
             success: false,
-            message: "Failed to delete post",
+            message: "Invalid item ID",
           });
         }
-      },
-    );
+
+        const result = await itemsCollection.updateOne(
+          {
+            _id: new ObjectId(id),
+            isDeleted: false,
+          },
+          {
+            $set: {
+              isDeleted: true,
+              deletedAt: new Date(),
+              updatedAt: new Date(),
+            },
+          },
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).send({
+            success: false,
+            message: "Post not found",
+          });
+        }
+
+        res.send({
+          success: true,
+          message: "Post deleted successfully",
+        });
+      } catch (error) {
+        console.error("Admin delete error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to delete post",
+        });
+      }
+    });
 
     // =====================================
     //              SERVER

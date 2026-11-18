@@ -25,6 +25,7 @@ import Loader from "../components/Loader";
 import ManageUsers from "../Layout/AdminDashboard/ManageUsers";
 import AllPostsManage from "../Layout/AdminDashboard/AllPostsManage";
 import ManageCampus from "../Layout/AdminDashboard/ManageCampus";
+import AdminOverview from "../Layout/AdminDashboard/AdminOverview";
 
 // ===================================
 // Protected Route - Logged In Users
@@ -189,7 +190,7 @@ export const router = createBrowserRouter([
         path: "/admin-dashboard",
         element: <AdminDashboard />,
         children: [
-          { path: "/admin-dashboard", element: <Overview /> },
+          { path: "/admin-dashboard", element: <AdminOverview /> },
           {
             path: "/admin-dashboard/my-profile",
             element: <UserProfile />,

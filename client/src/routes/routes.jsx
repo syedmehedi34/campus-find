@@ -20,6 +20,9 @@ import UserProfile from "../Layout/UserDashboard/UserProfile";
 import MyPosts from "../Layout/UserDashboard/MyPosts";
 import Notifications from "../Layout/UserDashboard/Notifications";
 import Overview from "../Layout/UserDashboard/Overview";
+import AdminDashboard from "../Layout/AdminDashboard/Dashboard";
+import Loader from "../components/Loader";
+import ManageUsers from "../Layout/AdminDashboard/ManageUsers";
 
 // ===================================
 // Protected Route - Logged In Users
@@ -29,7 +32,7 @@ const ProtectedRoute = () => {
   const { user, loading } = useContext(AuthContext);
 
   if (loading) {
-    return <progress className="progress w-56"></progress>;
+    return <Loader />;
   }
 
   if (!user) {
@@ -180,30 +183,36 @@ export const router = createBrowserRouter([
   {
     element: <AdminRoute />,
     children: [
-      // Admin Dashboard
+      {
+        path: "/admin-dashboard",
+        element: <AdminDashboard />,
+        children: [
+          { path: "/admin-dashboard", element: <Overview /> },
+          {
+            path: "/admin-dashboard/my-profile",
+            element: <UserProfile />,
+          },
+          {
+            path: "/admin-dashboard/manage-users",
+            element: <ManageUsers />,
+          },
+          // {
+          //   path: "/admin-dashboard/manage-campuses",
+          //   element: <ManageCampuses />,
+          // },
+          {
+            path: "/admin-dashboard/create-new-post",
+            element: <NewPost />,
+          },
+          {
+            path: "/admin-dashboard/my-posts",
+            element: <MyPosts />,
+          },
+        ],
+      },
       // {
-      //   path: "/admin/dashboard",
-      //   element: <AdminDashboard />,
-      // },
-      // Manage All Posts
-      // {
-      //   path: "/admin/posts",
-      //   element: <ManagePosts />,
-      // },
-      // Manage Users
-      // {
-      //   path: "/admin/users",
-      //   element: <ManageUsers />,
-      // },
-      // Manage Reports
-      // {
-      //   path: "/admin/reports",
-      //   element: <ManageReports />,
-      // },
-      // Manage Campuses
-      // {
-      //   path: "/admin/campuses",
-      //   element: <ManageCampuses />,
+      //   path: "/admin-dashboard/my-profile",
+      //   element: <UserProfile />,
       // },
     ],
   },

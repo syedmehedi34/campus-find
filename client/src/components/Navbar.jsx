@@ -31,7 +31,7 @@ const Navbar = () => {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isAdmin = loggedInUser?.role === "hr_manager";
+  const isAdmin = loggedInUser?.role === "admin";
 
   const profileImage = loggedInUser?.photoUrl || user?.photoURL;
 
@@ -89,34 +89,14 @@ const Navbar = () => {
       icon: Home,
     },
     {
-      name: "All Items",
-      path: "/lost-items",
-      icon: Search,
-    },
-    {
       name: "Dashboard",
       path: "/admin/dashboard",
       icon: LayoutDashboard,
     },
     {
-      name: "Manage Posts",
-      path: "/admin/posts",
-      icon: FileText,
-    },
-    {
-      name: "Manage Users",
-      path: "/admin/users",
-      icon: Users,
-    },
-    {
-      name: "Reports",
-      path: "/admin/reports",
-      icon: Flag,
-    },
-    {
-      name: "Campuses",
-      path: "/admin/campuses",
-      icon: Building2,
+      name: "All Items",
+      path: "/lost-items",
+      icon: Search,
     },
   ];
 
@@ -353,7 +333,7 @@ const Navbar = () => {
 
               {isAdmin && (
                 <Link
-                  to="/admin/dashboard"
+                  to="/admin-dashboard"
                   onClick={() => setProfileOpen(false)}
                   className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 text-gray-700"
                 >

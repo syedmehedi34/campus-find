@@ -174,30 +174,60 @@ async function run() {
       }
     });
 
-    //! Update User Profile
+    //! Update User - Dynamic PATCH
     app.patch("/users/:userId", async (req, res) => {
       try {
-        const { name, phone, department, batch, bio, photoUrl } = req.body;
+        const { userId } = req.params;
 
-        const updateData = {};
+        if (!userId) {
+          return res.status(400).send({
+            success: false,
+            message: "User ID is required",
+          });
+        }
 
-        if (name !== undefined) updateData.name = name;
-        if (phone !== undefined) updateData.phone = phone;
-        if (department !== undefined) updateData.department = department;
-        if (batch !== undefined) updateData.batch = batch;
-        if (bio !== undefined) updateData.bio = bio;
-        if (photoUrl !== undefined) updateData.photoUrl = photoUrl;
+        // Frontend থেকে পাঠানো সব data নেওয়া হচ্ছে
+        const updateData = { ...req.body };
+
+        // গুরুত্বপূর্ণ field সরাসরি update করা যাবে না
+        const protectedFields = ["_id", "userId", "createdAt", "updatedAt"];
+
+        protectedFields.forEach((field) => {
+          delete updateData[field];
+        });
+
+        // MongoDB operator বা nested key injection আটকানো
+        Object.keys(updateData).forEach((key) => {
+          if (key.startsWith("$") || key.includes(".")) {
+            delete updateData[key];
+          }
+        });
+
+        // Role validation
+        if (
+          updateData.role !== undefined &&
+          !["user", "admin"].includes(updateData.role)
+        ) {
+          return res.status(400).send({
+            success: false,
+            message: "Invalid user role",
+          });
+        }
 
         if (Object.keys(updateData).length === 0) {
           return res.status(400).send({
             success: false,
-            message: "No data provided to update",
+            message: "No valid data provided to update",
           });
         }
 
+        updateData.updatedAt = new Date();
+
         const result = await usersCollection.updateOne(
-          { userId: req.params.userId },
-          { $set: updateData },
+          { userId },
+          {
+            $set: updateData,
+          },
         );
 
         if (result.matchedCount === 0) {
@@ -209,14 +239,45 @@ async function run() {
 
         res.send({
           success: true,
-          message: "Profile updated successfully",
+          message: "User updated successfully",
+          modifiedCount: result.modifiedCount,
+          updatedData: updateData,
+        });
+      } catch (error) {
+        console.error("Update user error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to update user",
+          error: error.message,
+        });
+      }
+    });
+
+    //! Delete User
+    app.delete("/users/:userId", async (req, res) => {
+      try {
+        const result = await usersCollection.deleteOne({
+          userId: req.params.userId,
+        });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).send({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        res.send({
+          success: true,
+          message: "User deleted successfully",
         });
       } catch (error) {
         console.error(error);
 
         res.status(500).send({
           success: false,
-          message: "Failed to update profile",
+          message: "Failed to delete user",
         });
       }
     });

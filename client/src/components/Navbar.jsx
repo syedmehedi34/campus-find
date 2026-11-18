@@ -359,14 +359,6 @@ const Navbar = () => {
 
                   {/* Menu */}
                   <div className="p-2">
-                    <DropdownItem
-                      to="/admin-dashboard/my-profile"
-                      icon={UserRound}
-                      label="My Profile"
-                      hint="View and edit your details"
-                      onClick={() => setProfileOpen(false)}
-                    />
-
                     {isAdmin ? (
                       <DropdownItem
                         to="/admin-dashboard"

@@ -1,107 +1,118 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import {
-  FaUniversity,
-  FaPlus,
   FaSearch,
+  FaPlus,
+  FaUniversity,
   FaTrash,
   FaTimes,
   FaMapMarkerAlt,
-  FaCalendarAlt,
-  FaBuilding,
   FaGraduationCap,
-  FaHashtag,
-  FaArrowRight,
+  FaBuilding,
 } from "react-icons/fa";
 
-const API_URL = import.meta.env.VITE_API_URL;
+import useAxiosPublic from "../../hooks/useAxiosPublic";
 
 const ManageCampus = () => {
+  const axiosPublic = useAxiosPublic();
   const queryClient = useQueryClient();
 
-  const [search, setSearch] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showModal, setShowModal] = useState(false);
   const [campusName, setCampusName] = useState("");
   const [campusCode, setCampusCode] = useState("");
 
-  // Fetch campuses
+  // Fetch all campuses
   const {
-    data: campusData,
+    data: campuses = [],
     isLoading,
     isError,
+    error,
   } = useQuery({
     queryKey: ["campuses"],
     queryFn: async () => {
-      const res = await axios.get(`${API_URL}/campuses`);
+      const res = await axiosPublic.get("/campuses");
+
+      if (!res.data?.success || !Array.isArray(res.data.campuses)) {
+        throw new Error("Invalid campuses API response");
+      }
+
       return res.data.campuses;
     },
   });
 
-  const campuses = campusData || [];
+  // Add campus
+  const addCampusMutation = useMutation({
+    mutationFn: async (newCampus) => {
+      const res = await axiosPublic.post("/campuses", newCampus);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (!data.success) {
+        toast.error(data.message || "Failed to add campus");
+        return;
+      }
+
+      toast.success(data.message || "Campus added successfully");
+
+      queryClient.invalidateQueries({
+        queryKey: ["campuses"],
+      });
+
+      setCampusName("");
+      setCampusCode("");
+      setShowModal(false);
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to add campus");
+    },
+  });
+
+  // Delete campus
+  const deleteCampusMutation = useMutation({
+    mutationFn: async (id) => {
+      const res = await axiosPublic.delete(`/campuses/${id}`);
+      return res.data;
+    },
+    onSuccess: (data) => {
+      if (!data.success) {
+        toast.error(data.message || "Failed to delete campus");
+        return;
+      }
+
+      toast.success(data.message || "Campus deleted successfully");
+
+      queryClient.invalidateQueries({
+        queryKey: ["campuses"],
+      });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to delete campus");
+    },
+  });
 
   // Search campuses
   const filteredCampuses = useMemo(() => {
     return campuses.filter((campus) => {
-      const keyword = search.toLowerCase();
+      const search = searchTerm.toLowerCase();
 
       return (
-        campus.campusName.toLowerCase().includes(keyword) ||
-        campus.campusCode.toLowerCase().includes(keyword)
+        campus.campusName?.toLowerCase().includes(search) ||
+        campus.campusCode?.toLowerCase().includes(search)
       );
     });
-  }, [campuses, search]);
+  }, [campuses, searchTerm]);
 
-  // Add campus mutation
-  const addCampusMutation = useMutation({
-    mutationFn: async (newCampus) => {
-      const res = await axios.post(`${API_URL}/campuses`, newCampus);
+  // Statistics
+  const totalCampuses = campuses.length;
 
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["campuses"],
-      });
-
-      toast.success("Campus added successfully!");
-
-      setCampusName("");
-      setCampusCode("");
-      setIsModalOpen(false);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to add campus");
-    },
-  });
-
-  // Delete campus mutation
-  const deleteCampusMutation = useMutation({
-    mutationFn: async (id) => {
-      const res = await axios.delete(`${API_URL}/campuses/${id}`);
-
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["campuses"],
-      });
-
-      toast.success("Campus deleted successfully!");
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to delete campus");
-    },
-  });
-
-  // Submit new campus
   const handleAddCampus = (e) => {
     e.preventDefault();
 
     if (!campusName.trim() || !campusCode.trim()) {
-      toast.warning("Please fill in all fields");
+      toast.error("Please fill in all fields");
       return;
     }
 
@@ -111,20 +122,16 @@ const ManageCampus = () => {
     });
   };
 
-  // Delete confirmation
   const handleDeleteCampus = async (campus) => {
     const result = await Swal.fire({
       title: "Delete Campus?",
-      text: `Are you sure you want to delete ${campus.campusName}? This action cannot be undone.`,
+      text: `Are you sure you want to delete ${campus.campusName}?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#e11d48",
+      confirmButtonColor: "#dc2626",
       cancelButtonColor: "#64748b",
-      confirmButtonText: "Yes, delete it",
+      confirmButtonText: "Yes, Delete",
       cancelButtonText: "Cancel",
-      reverseButtons: true,
-      background: "#ffffff",
-      color: "#1e293b",
     });
 
     if (result.isConfirmed) {
@@ -132,199 +139,154 @@ const ManageCampus = () => {
     }
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-600">
-              <FaMapMarkerAlt />
-              <span>ADMINISTRATION / CAMPUS</span>
+    <div className="min-h-screen space-y-6 bg-slate-50 p-4 md:p-6 lg:p-8">
+      {/* Header */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800 md:text-3xl">
+            Manage Campuses
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Manage and organize all registered campuses.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700"
+        >
+          <FaPlus />
+          Add New Campus
+        </button>
+      </div>
+
+      {/* Statistics */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Total Campuses
+              </p>
+              <h2 className="mt-2 text-3xl font-bold text-slate-800">
+                {isLoading ? "..." : totalCampuses}
+              </h2>
             </div>
 
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-              Manage Campuses
-            </h1>
+            <div className="rounded-xl bg-indigo-50 p-4 text-xl text-indigo-600">
+              <FaUniversity />
+            </div>
+          </div>
+        </div>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Manage all registered universities and campuses from one place.
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Search Results
+              </p>
+              <h2 className="mt-2 text-3xl font-bold text-slate-800">
+                {isLoading ? "..." : filteredCampuses.length}
+              </h2>
+            </div>
+
+            <div className="rounded-xl bg-emerald-50 p-4 text-xl text-emerald-600">
+              <FaGraduationCap />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:col-span-2 lg:col-span-1">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Campus Management
+              </p>
+              <h2 className="mt-2 text-lg font-bold text-slate-800">Active</h2>
+              <p className="mt-1 text-xs text-slate-400">
+                Campus records management
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-amber-50 p-4 text-xl text-amber-600">
+              <FaBuilding />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Campus Table */}
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        {/* Table Header */}
+        <div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-lg font-bold text-slate-800">All Campuses</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              View and manage registered campuses.
             </p>
           </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 hover:shadow-indigo-300"
-          >
-            <FaPlus />
-            Add New Campus
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="mb-7 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
-            <div className="absolute -right-5 -top-5 h-28 w-28 rounded-full bg-indigo-50" />
-
-            <div className="relative flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-500">
-                  Total Campuses
-                </p>
-
-                <h2 className="mt-2 text-3xl font-bold text-slate-800">
-                  {campuses.length}
-                </h2>
-
-                <p className="mt-1 text-xs text-slate-400">
-                  Registered institutions
-                </p>
-              </div>
-
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-2xl text-indigo-600">
-                <FaUniversity />
-              </div>
-            </div>
-          </div>
-
-          <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
-            <div className="absolute -right-5 -top-5 h-28 w-28 rounded-full bg-emerald-50" />
-
-            <div className="relative flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-500">
-                  Recently Added
-                </p>
-
-                <h2 className="mt-2 text-3xl font-bold text-slate-800">
-                  {campuses.length
-                    ? campuses.filter((campus) => {
-                        const created = new Date(campus.createdAt);
-                        const now = new Date();
-
-                        return (
-                          created.getMonth() === now.getMonth() &&
-                          created.getFullYear() === now.getFullYear()
-                        );
-                      }).length
-                    : 0}
-                </h2>
-
-                <p className="mt-1 text-xs text-slate-400">Added this month</p>
-              </div>
-
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-2xl text-emerald-600">
-                <FaGraduationCap />
-              </div>
-            </div>
+          <div className="relative w-full sm:max-w-xs">
+            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search campus..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+            />
           </div>
         </div>
 
-        {/* Campus List */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          {/* List Header */}
-          <div className="flex flex-col justify-between gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-lg font-bold text-slate-800">All Campuses</h2>
-
-              <p className="mt-1 text-sm text-slate-400">
-                {filteredCampuses.length} campus
-                {filteredCampuses.length !== 1 ? "es" : ""} found
-              </p>
-            </div>
-
-            <div className="relative w-full sm:max-w-xs">
-              <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400" />
-
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search campus..."
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
-              />
-            </div>
+        {/* Loading */}
+        {isLoading && (
+          <div className="flex justify-center py-16">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600"></div>
           </div>
+        )}
 
-          {/* Loading */}
-          {isLoading && (
-            <div className="flex min-h-64 items-center justify-center">
-              <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-100 border-t-indigo-600" />
-            </div>
-          )}
+        {/* Error */}
+        {isError && (
+          <div className="px-5 py-16 text-center">
+            <p className="font-semibold text-red-500">
+              Failed to load campuses
+            </p>
+            <p className="mt-2 text-sm text-slate-500">{error?.message}</p>
+          </div>
+        )}
 
-          {/* Error */}
-          {isError && (
-            <div className="p-12 text-center">
-              <p className="font-semibold text-rose-500">
-                Failed to load campuses.
-              </p>
-              <p className="mt-2 text-sm text-slate-400">
-                Please refresh the page and try again.
-              </p>
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && !isError && filteredCampuses.length === 0 && (
-            <div className="flex flex-col items-center justify-center px-5 py-16 text-center">
-              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50 text-3xl text-indigo-400">
-                <FaUniversity />
-              </div>
-
-              <h3 className="text-lg font-bold text-slate-700">
-                {search ? "No campus found" : "No campuses yet"}
-              </h3>
-
-              <p className="mt-2 max-w-sm text-sm text-slate-400">
-                {search
-                  ? "Try searching with another name or campus code."
-                  : "Start by adding your first campus to Campus Find."}
-              </p>
-
-              {!search && (
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="mt-5 flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
-                >
-                  <FaPlus />
-                  Add Campus
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Desktop Table */}
-          {!isLoading && !isError && filteredCampuses.length > 0 && (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500">
+        {/* Table */}
+        {!isLoading && !isError && (
+          <>
+            {filteredCampuses.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[650px] text-left">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-6 py-4">Campus</th>
-                      <th className="px-6 py-4">Campus Code</th>
-                      <th className="px-6 py-4">Created At</th>
-                      <th className="px-6 py-4 text-right">Action</th>
+                      <th className="px-6 py-4 font-semibold">#</th>
+                      <th className="px-6 py-4 font-semibold">Campus Name</th>
+                      <th className="px-6 py-4 font-semibold">Campus Code</th>
+                      <th className="px-6 py-4 font-semibold">Created At</th>
+                      <th className="px-6 py-4 text-center font-semibold">
+                        Action
+                      </th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-slate-100">
-                    {filteredCampuses.map((campus) => (
+                    {filteredCampuses.map((campus, index) => (
                       <tr
                         key={campus._id}
-                        className="transition hover:bg-indigo-50/40"
+                        className="transition hover:bg-slate-50"
                       >
-                        <td className="px-6 py-5">
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {index + 1}
+                        </td>
+
+                        <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-lg text-indigo-600">
+                            <div className="rounded-lg bg-indigo-50 p-3 text-indigo-600">
                               <FaUniversity />
                             </div>
 
@@ -333,34 +295,32 @@ const ManageCampus = () => {
                                 {campus.campusName}
                               </p>
                               <p className="mt-1 text-xs text-slate-400">
-                                Registered campus
+                                Registered Campus
                               </p>
                             </div>
                           </div>
                         </td>
 
-                        <td className="px-6 py-5">
-                          <span className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold tracking-wider text-indigo-700">
-                            <FaHashtag className="text-[10px]" />
+                        <td className="px-6 py-4">
+                          <span className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold tracking-wider text-indigo-600">
                             {campus.campusCode}
                           </span>
                         </td>
 
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <FaCalendarAlt className="text-slate-400" />
-                            {formatDate(campus.createdAt)}
-                          </div>
+                        <td className="px-6 py-4 text-sm text-slate-500">
+                          {campus.createdAt
+                            ? new Date(campus.createdAt).toLocaleDateString()
+                            : "N/A"}
                         </td>
 
-                        <td className="px-6 py-5 text-right">
+                        <td className="px-6 py-4 text-center">
                           <button
                             onClick={() => handleDeleteCampus(campus)}
                             disabled={deleteCampusMutation.isPending}
-                            title="Delete campus"
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-100 bg-rose-50 text-rose-500 transition hover:border-rose-200 hover:bg-rose-500 hover:text-white disabled:opacity-50"
+                            className="rounded-lg bg-red-50 p-3 text-red-500 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Delete Campus"
                           >
-                            <FaTrash className="text-xs" />
+                            <FaTrash />
                           </button>
                         </td>
                       </tr>
@@ -368,189 +328,91 @@ const ManageCampus = () => {
                   </tbody>
                 </table>
               </div>
-
-              {/* Mobile Cards */}
-              <div className="space-y-3 p-4 md:hidden">
-                {filteredCampuses.map((campus) => (
-                  <div
-                    key={campus._id}
-                    className="rounded-xl border border-slate-100 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                          <FaUniversity />
-                        </div>
-
-                        <div>
-                          <h3 className="font-semibold text-slate-800">
-                            {campus.campusName}
-                          </h3>
-                          <span className="mt-1 inline-block rounded-md bg-indigo-50 px-2 py-1 text-xs font-bold text-indigo-600">
-                            {campus.campusCode}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleDeleteCampus(campus)}
-                        disabled={deleteCampusMutation.isPending}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-500 transition hover:bg-rose-500 hover:text-white"
-                      >
-                        <FaTrash className="text-xs" />
-                      </button>
-                    </div>
-
-                    <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 text-xs text-slate-400">
-                      <FaCalendarAlt />
-                      Created {formatDate(campus.createdAt)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-5 flex items-center justify-between text-xs text-slate-400">
-          <p>Campus Find Administration</p>
-          <p>Campus Management</p>
-        </div>
-      </div>
-
-      {/* ================================= */}
-      {/*          ADD CAMPUS MODAL         */}
-      {/* ================================= */}
-
-      {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/50 p-3 backdrop-blur-sm sm:p-6"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsModalOpen(false);
-            }
-          }}
-        >
-          <div className="my-auto w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-            {/* Modal Banner */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-600 px-6 py-8 sm:px-9 sm:py-10">
-              <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full border-[35px] border-white/10" />
-              <div className="absolute -bottom-24 right-36 h-52 w-52 rounded-full bg-white/5" />
-
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="absolute right-5 top-5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
-              >
-                <FaTimes />
-              </button>
-
-              <div className="relative">
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-2xl text-white shadow-lg">
+            ) : (
+              <div className="px-5 py-16 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-2xl text-slate-400">
                   <FaUniversity />
                 </div>
 
-                <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-indigo-100">
-                  Campus Management
-                </p>
-
-                <h2 className="text-2xl font-bold text-white sm:text-3xl">
-                  Add a New Campus
-                </h2>
-
-                <p className="mt-2 max-w-md text-sm leading-6 text-indigo-100">
-                  Register a university or campus to make it available across
-                  the Campus Find platform.
-                </p>
-              </div>
-            </div>
-
-            {/* Modal Form */}
-            <form onSubmit={handleAddCampus} className="p-6 sm:p-9">
-              <div className="mb-7">
-                <h3 className="text-lg font-bold text-slate-800">
-                  Campus Information
+                <h3 className="font-semibold text-slate-700">
+                  No campuses found
                 </h3>
 
-                <p className="mt-1 text-sm text-slate-400">
-                  Provide the basic details of the institution.
+                <p className="mt-2 text-sm text-slate-400">
+                  {searchTerm
+                    ? "Try searching with a different keyword."
+                    : "Add your first campus to get started."}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Add Campus Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">
+                  Add New Campus
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Enter the campus information.
                 </p>
               </div>
 
-              {/* Campus Name */}
-              <div className="mb-6">
+              <button
+                onClick={() => setShowModal(false)}
+                className="rounded-lg bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCampus} className="space-y-5">
+              <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Campus / University Name
-                  <span className="ml-1 text-rose-500">*</span>
+                  Campus Name
                 </label>
 
                 <div className="relative">
-                  <FaBuilding className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-
+                  <FaUniversity className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    required
-                    maxLength={120}
                     value={campusName}
                     onChange={(e) => setCampusName(e.target.value)}
-                    placeholder="e.g. Rajshahi University of Engineering & Technology"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+                    placeholder="Enter campus name"
+                    required
+                    className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
                 </div>
               </div>
 
-              {/* Campus Code */}
-              <div className="mb-7">
+              <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
                   Campus Code
-                  <span className="ml-1 text-rose-500">*</span>
                 </label>
 
                 <div className="relative">
-                  <FaHashtag className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-
+                  <FaMapMarkerAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    required
-                    maxLength={30}
                     value={campusCode}
-                    onChange={(e) =>
-                      setCampusCode(e.target.value.toUpperCase())
-                    }
-                    placeholder="e.g. RUET"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3.5 pl-11 pr-4 text-sm font-semibold uppercase tracking-wider text-slate-700 outline-none transition placeholder:font-normal placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-50"
+                    onChange={(e) => setCampusCode(e.target.value)}
+                    placeholder="e.g. VU"
+                    required
+                    className="w-full rounded-xl border border-slate-200 py-3 pl-11 pr-4 text-sm uppercase outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   />
                 </div>
-
-                <p className="mt-2 text-xs text-slate-400">
-                  Use a unique short code. Example: RUET, DU, BUET.
-                </p>
               </div>
 
-              {/* Info Box */}
-              <div className="mb-7 flex gap-3 rounded-xl border border-indigo-100 bg-indigo-50/70 p-4">
-                <div className="mt-0.5 text-indigo-600">
-                  <FaGraduationCap className="text-lg" />
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-indigo-800">
-                    Important information
-                  </p>
-
-                  <p className="mt-1 text-xs leading-5 text-indigo-700/80">
-                    Campus code will be used to connect users and lost/found
-                    posts with this institution. Make sure the code is correct.
-                  </p>
-                </div>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:justify-end">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-200 px-6 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 rounded-xl border border-slate-200 px-4 py-3 font-semibold text-slate-600 transition hover:bg-slate-50"
                 >
                   Cancel
                 </button>
@@ -558,19 +420,9 @@ const ManageCampus = () => {
                 <button
                   type="submit"
                   disabled={addCampusMutation.isPending}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-7 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {addCampusMutation.isPending ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      Adding Campus...
-                    </>
-                  ) : (
-                    <>
-                      Add Campus
-                      <FaArrowRight />
-                    </>
-                  )}
+                  {addCampusMutation.isPending ? "Adding..." : "Add Campus"}
                 </button>
               </div>
             </form>

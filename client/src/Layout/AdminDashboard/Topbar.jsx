@@ -100,7 +100,7 @@ const TopBar = ({ isMobile, toggleSidebar, user, userRole, onLogout }) => {
 
               <div className="mt-3 space-y-1">
                 <Link
-                  to="/user-dashboard/my-profile"
+                  to="/admin-dashboard/my-profile"
                   onClick={() => setShowProfileMenu(false)}
                   className="block rounded-xl p-2 text-sm text-teal-100 transition-colors duration-200 hover:bg-white/10"
                 >

@@ -1,8 +1,6 @@
-
 import { useState } from "react";
 import { useLocation } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import Swal from "sweetalert2";
 import {
   FaSearch,
@@ -14,8 +12,7 @@ import {
   FaPhoneAlt,
   FaTag,
   FaRegLightbulb,
-  FaShieldAlt,
-  FaCheckCircle,
+  FaCheck,
   FaImage,
   FaCamera,
 } from "react-icons/fa";
@@ -23,8 +20,6 @@ import {
 import ImageUploader from "./ImageUploader";
 import useUserData from "../../hooks/useUserData";
 import useAxiosPublic from "../../hooks/useAxiosPublic";
-
-const display = "font-['Bricolage_Grotesque',sans-serif]";
 
 const categories = [
   "electronics",
@@ -56,6 +51,10 @@ const initialFormData = {
   contactPreference: null,
 };
 
+// =====================================
+//              HELPERS
+// =====================================
+
 const formatCategory = (category = "") =>
   category
     .split("-")
@@ -66,25 +65,20 @@ const formatDate = (date) => {
   if (!date) return "Date not set";
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return date;
-  return parsed.toLocaleDateString("en-US", {
+  return parsed.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 };
 
-const typeStyle = (type) =>
-  type === "lost"
-    ? { badge: "bg-orange-500 text-white" }
-    : { badge: "bg-emerald-500 text-white" };
-
-/* ---------- shared input styles (same look as the search box in AllPosts) ---------- */
+/* ---------- shared input styles ---------- */
 const inputCls =
-  "w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10";
-const fieldCls = `${inputCls} h-12`;
-const areaCls = `${inputCls} py-3 leading-6 resize-y`;
+  "w-full rounded-xl border border-[#dbe7e3] bg-[#f8fbfa] px-4 text-sm text-[#10312c] outline-none transition placeholder:text-[#a4b4b0] focus:border-[#0d9467] focus:bg-white focus:ring-4 focus:ring-[#0d9467]/10";
+const fieldCls = `${inputCls} h-11`;
+const areaCls = `${inputCls} resize-y py-3 leading-6`;
 const labelCls =
-  "mb-2 flex items-center gap-2 text-xs font-bold text-slate-700";
+  "mb-2 flex items-center gap-2 text-[13px] font-medium text-[#3c5a53]";
 
 const typeOptions = [
   {
@@ -92,38 +86,51 @@ const typeOptions = [
     title: "I lost something",
     hint: "Help me find my missing item",
     icon: FaSearch,
-    active: "border-orange-400 bg-orange-50 shadow-lg shadow-orange-200/60",
-    iconCls: "bg-orange-500 text-white",
-    dot: "border-orange-500 bg-orange-500",
+    active: "border-rose-400 bg-rose-50/70",
+    iconCls: "bg-rose-500 text-white",
+    dot: "border-rose-500 bg-rose-500",
   },
   {
     value: "found",
     title: "I found something",
     hint: "Help return an item to its owner",
     icon: FaHandHoldingHeart,
-    active: "border-emerald-400 bg-emerald-50 shadow-lg shadow-emerald-200/60",
-    iconCls: "bg-emerald-500 text-white",
-    dot: "border-emerald-500 bg-emerald-500",
+    active: "border-[#0d9467] bg-[#e8f6ef]",
+    iconCls: "bg-[#0d9467] text-white",
+    dot: "border-[#0d9467] bg-[#0d9467]",
   },
 ];
 
-/* ---------- card section wrapper ---------- */
+const steps = [
+  "Choose whether you lost or found an item",
+  "Add details, photos and where it happened",
+  "Publish and let your campus help",
+];
+
+// =====================================
+//              SMALL PIECES
+// =====================================
+
 const Section = ({ icon: Icon, title, subtitle, children }) => (
-  <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-lg shadow-slate-200/50 sm:p-7">
-    <div className="mb-6 flex items-center gap-4">
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-100 text-lg text-indigo-600">
-        <Icon />
+  <section className="rounded-[22px] border border-[#e3ebe8] bg-white p-5 sm:p-6">
+    <div className="mb-5 flex items-center gap-3.5">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#e3f4ec] text-[#0d7a55]">
+        <Icon size={16} />
       </span>
       <div>
-        <h3 className={`${display} text-lg font-extrabold text-slate-900`}>
+        <h3 className="cf-display text-[17px] font-semibold text-[#10312c]">
           {title}
         </h3>
-        <p className="text-xs text-slate-500">{subtitle}</p>
+        <p className="text-[13px] text-[#7a8f8a]">{subtitle}</p>
       </div>
     </div>
     {children}
   </section>
 );
+
+// =====================================
+//              MAIN PAGE
+// =====================================
 
 const NewPost = () => {
   const { pathname } = useLocation();
@@ -236,7 +243,7 @@ const NewPost = () => {
     }));
   };
 
-  const style = typeStyle(formData.type);
+  const isLost = formData.type === "lost";
   const previewImage = formData.images?.[0];
   const previewLocation = [
     formData.location.area,
@@ -246,149 +253,73 @@ const NewPost = () => {
     .join(", ");
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-slate-50 via-white to-indigo-50/40 px-4 py-8 text-slate-800 sm:px-6 lg:py-10">
-      {/* background */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-50"
-        style={{
-          backgroundImage: "radial-gradient(#c7d2fe 1.2px, transparent 1.2px)",
-          backgroundSize: "28px 28px",
-          maskImage: "linear-gradient(to bottom, black, transparent 45%)",
-          WebkitMaskImage: "linear-gradient(to bottom, black, transparent 45%)",
-        }}
-      />
-      <div className="pointer-events-none absolute -left-32 top-24 h-80 w-80 rounded-full bg-blue-300/25 blur-3xl" />
-      <div className="pointer-events-none absolute -right-32 top-[500px] h-96 w-96 rounded-full bg-fuchsia-300/20 blur-3xl" />
+    <div className="cf-root min-h-screen bg-[#f3f7f5] px-4 py-7 md:px-6">
+      <style>{styles}</style>
 
-      <div className="relative mx-auto max-w-7xl">
-        {/* ================= HERO ================= */}
+      <div className="mx-auto max-w-7xl">
+        {/* ================= HERO (public route only) ================= */}
         {showHero && (
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-            className="relative mb-10 overflow-hidden rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-violet-100/70 px-6 py-10 shadow-2xl shadow-indigo-200/40 sm:px-10 sm:py-14"
-          >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
-              className="absolute -right-24 -top-24 h-80 w-80 rounded-full border-2 border-dashed border-indigo-200"
+          <section className="cf-rise relative mb-8 overflow-hidden rounded-[28px] bg-[#0b2a26] p-6 text-white md:p-10">
+            <div className="cf-drift pointer-events-none absolute -right-24 -top-32 h-[380px] w-[380px] rounded-full bg-[#1c8f6b]/30 blur-3xl" />
+            <div
+              className="cf-drift pointer-events-none absolute -bottom-40 left-1/4 h-[320px] w-[320px] rounded-full bg-[#f5a524]/10 blur-3xl"
+              style={{ animationDelay: "-6s" }}
             />
-            <div className="absolute -bottom-24 left-1/3 h-64 w-64 rounded-full bg-fuchsia-200/40 blur-3xl" />
 
-            <div className="relative grid items-center gap-10 lg:grid-cols-[1.2fr_1fr]">
+            <div className="relative grid items-center gap-8 lg:grid-cols-[1.2fr_1fr]">
               <div>
-                <span className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm">
-                  <FaHandHoldingHeart /> Community starts with helping
-                </span>
+                <p className="flex items-center gap-2 text-sm text-[#9fc9bd]">
+                  <FaHandHoldingHeart />
+                  Community starts with helping
+                </p>
 
-                <h1
-                  className={`${display} mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-6xl`}
-                >
-                  Lost or found something?{" "}
-                  <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-500 bg-clip-text text-transparent">
-                    Let’s sort it out together.
-                  </span>
+                <h1 className="cf-display mt-4 text-4xl font-extrabold leading-[1.08] sm:text-5xl md:text-[56px]">
+                  Lost or found something? Let&apos;s sort it out together.
                 </h1>
 
-                <p className="mt-5 max-w-xl text-base leading-8 text-slate-600">
+                <p className="mt-5 max-w-xl text-base leading-7 text-[#c4e0d8]">
                   Every item has an owner. Share the details with your campus
                   community and help it find its way home.
                 </p>
-
-                <div className="mt-8 flex flex-wrap gap-3">
-                  {[
-                    { icon: FaShieldAlt, text: "Campus community" },
-                    { icon: FaSearch, text: "Easy discovery" },
-                    { icon: FaHandHoldingHeart, text: "Help each other" },
-                  ].map((f) => (
-                    <div
-                      key={f.text}
-                      className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white px-4 py-2.5 shadow-sm"
-                    >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                        <f.icon />
-                      </span>
-                      <span className="text-xs font-bold text-slate-700">
-                        {f.text}
-                      </span>
-                    </div>
-                  ))}
-                </div>
               </div>
 
-              {/* floating card */}
-              <div className="relative mx-auto hidden h-64 w-full max-w-sm lg:block">
-                <motion.div
-                  animate={{ y: [0, -12, 0] }}
-                  transition={{
-                    duration: 5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
-                  className="absolute left-4 top-6 w-64 rotate-[-4deg] rounded-3xl border border-indigo-200 bg-white p-5 shadow-xl shadow-indigo-200/60"
-                >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 text-xl text-white">
-                    <FaBoxOpen />
-                  </span>
-                  <p className="mt-4 text-[11px] font-semibold text-slate-400">
-                    A little help goes a long way
-                  </p>
-                  <p
-                    className={`${display} mt-1 text-lg font-extrabold leading-6 text-slate-900`}
-                  >
-                    Someone might be looking for this.
-                  </p>
-                </motion.div>
-                <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{
-                    duration: 4.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 0.8,
-                  }}
-                  className="absolute right-0 top-0 flex h-14 w-14 rotate-[6deg] items-center justify-center rounded-2xl border border-emerald-200 bg-white text-xl text-emerald-500 shadow-xl shadow-emerald-200/60"
-                >
-                  <FaHandHoldingHeart />
-                </motion.div>
-                <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{
-                    duration: 5.5,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 1.4,
-                  }}
-                  className="absolute bottom-0 right-8 flex h-14 w-14 rotate-[-6deg] items-center justify-center rounded-2xl border border-orange-200 bg-white text-xl text-orange-500 shadow-xl shadow-orange-200/60"
-                >
-                  <FaSearch />
-                </motion.div>
+              <div className="rounded-2xl bg-white/6 p-5 ring-1 ring-white/10 backdrop-blur-sm">
+                <h2 className="cf-display text-lg font-semibold">
+                  How it works
+                </h2>
+                <ol className="mt-4 space-y-4">
+                  {steps.map((text, i) => (
+                    <li key={text} className="flex items-center gap-3.5">
+                      <span className="cf-display flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#3ddc97] text-sm font-bold text-[#0b2a26]">
+                        {i + 1}
+                      </span>
+                      <span className="text-sm text-[#c4e0d8]">{text}</span>
+                    </li>
+                  ))}
+                </ol>
               </div>
             </div>
-          </motion.section>
+          </section>
         )}
 
         {/* ================= HEADING ================= */}
-        <div className="mb-7 flex items-end justify-between gap-4">
+        <header className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <h2
-              className={`${display} text-3xl font-extrabold tracking-tight text-slate-900`}
-            >
+            <h2 className="cf-display text-3xl font-bold text-[#10312c] md:text-[40px] md:leading-[1.1]">
               Share your item
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-[15px] text-[#6d837d]">
               Fill in the details below to reach your campus community.
             </p>
           </div>
-          <div className="hidden rounded-2xl border border-indigo-100 bg-white px-4 py-2.5 text-xs text-slate-500 shadow-sm sm:block">
+          <div className="hidden rounded-full border border-[#dbe7e3] bg-white px-4 py-2 text-[13px] text-[#6d837d] sm:block">
             <span className="font-bold text-rose-500">*</span> Required fields
           </div>
-        </div>
+        </header>
 
         <form
           onSubmit={handleSubmit}
-          className="grid items-start gap-8 lg:grid-cols-[1fr_340px]"
+          className="grid items-start gap-6 lg:grid-cols-[1fr_340px]"
         >
           {/* ================= LEFT: FORM ================= */}
           <div className="space-y-6">
@@ -398,42 +329,41 @@ const NewPost = () => {
               title="What happened?"
               subtitle="Choose the type of post you want to create."
             >
-              <div className="relative grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 {typeOptions.map((opt) => {
                   const selected = formData.type === opt.value;
                   return (
                     <button
                       key={opt.value}
                       type="button"
+                      aria-pressed={selected}
                       onClick={() =>
                         setFormData((prev) => ({ ...prev, type: opt.value }))
                       }
-                      className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left transition duration-300 focus:outline-none focus-visible:ring-4 focus-visible:ring-indigo-200 ${
+                      className={`flex items-center gap-4 rounded-2xl border-2 p-4 text-left transition focus:outline-none focus-visible:ring-4 focus-visible:ring-[#0d9467]/20 ${
                         selected
                           ? opt.active
-                          : "border-slate-200 bg-white hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg"
+                          : "border-[#e3ebe8] bg-white hover:border-[#bfd9d0] hover:bg-[#f8fbfa]"
                       }`}
                     >
                       <span
                         className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg transition ${
-                          selected ? opt.iconCls : "bg-slate-100 text-slate-500"
+                          selected ? opt.iconCls : "bg-[#eef4f2] text-[#6d837d]"
                         }`}
                       >
                         <opt.icon />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <strong
-                          className={`${display} block text-base font-extrabold text-slate-900`}
-                        >
+                        <strong className="cf-display block text-base font-semibold text-[#10312c]">
                           {opt.title}
                         </strong>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-[#7a8f8a]">
                           {opt.hint}
                         </span>
                       </span>
                       <span
                         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                          selected ? opt.dot : "border-slate-300"
+                          selected ? opt.dot : "border-[#c3d3cf]"
                         }`}
                       >
                         {selected && (
@@ -478,13 +408,14 @@ const NewPost = () => {
                       <button
                         key={c}
                         type="button"
+                        aria-pressed={formData.category === c}
                         onClick={() =>
                           setFormData((prev) => ({ ...prev, category: c }))
                         }
-                        className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+                        className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition ${
                           formData.category === c
-                            ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-200"
-                            : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
+                            ? "bg-[#0b2a26] text-white"
+                            : "border border-[#dbe7e3] bg-white text-[#3c5a53] hover:bg-[#e8f6ef] hover:text-[#0d7a55]"
                         }`}
                       >
                         {formatCategory(c)}
@@ -506,7 +437,7 @@ const NewPost = () => {
                     placeholder="Describe the item, its color, brand, condition, or anything that can help identify it..."
                     className={areaCls}
                   />
-                  <p className="mt-2 text-[11px] text-slate-400">
+                  <p className="mt-2 text-xs text-[#8ea19c]">
                     More details can make it easier to identify the item.
                   </p>
                 </div>
@@ -528,13 +459,13 @@ const NewPost = () => {
             {/* Location and time */}
             <Section
               icon={FaMapMarkerAlt}
-              title="Where & when?"
+              title="Where and when?"
               subtitle="Help others understand where and when it happened."
             >
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
                   <label htmlFor="area" className={labelCls}>
-                    <FaMapMarkerAlt className="text-indigo-500" /> Campus area
+                    <FaMapMarkerAlt className="text-[#0d9467]" /> Campus area
                   </label>
                   <input
                     id="area"
@@ -549,7 +480,7 @@ const NewPost = () => {
 
                 <div>
                   <label htmlFor="specificLocation" className={labelCls}>
-                    <FaMapMarkerAlt className="text-indigo-500" /> Specific
+                    <FaMapMarkerAlt className="text-[#0d9467]" /> Specific
                     location
                   </label>
                   <input
@@ -565,7 +496,7 @@ const NewPost = () => {
 
                 <div>
                   <label htmlFor="date" className={labelCls}>
-                    <FaCalendarAlt className="text-indigo-500" /> Date
+                    <FaCalendarAlt className="text-[#0d9467]" /> Date
                   </label>
                   <input
                     id="date"
@@ -579,7 +510,7 @@ const NewPost = () => {
 
                 <div>
                   <label htmlFor="approximateTime" className={labelCls}>
-                    <FaClock className="text-indigo-500" /> Approximate time
+                    <FaClock className="text-[#0d9467]" /> Approximate time
                   </label>
                   <input
                     id="approximateTime"
@@ -617,7 +548,7 @@ const NewPost = () => {
 
                 <div>
                   <label htmlFor="contactPreference" className={labelCls}>
-                    <FaPhoneAlt className="text-indigo-500" /> Contact number
+                    <FaPhoneAlt className="text-[#0d9467]" /> Contact number
                   </label>
                   <input
                     id="contactPreference"
@@ -630,7 +561,7 @@ const NewPost = () => {
                     placeholder="Enter your contact number"
                     className={fieldCls}
                   />
-                  <p className="mt-2 text-[11px] text-slate-400">
+                  <p className="mt-2 text-xs text-[#8ea19c]">
                     People can use this number to contact you about the item.
                   </p>
                 </div>
@@ -638,54 +569,55 @@ const NewPost = () => {
             </Section>
 
             {/* Submit */}
-            <section className="flex flex-col gap-5 rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-indigo-50 to-violet-100/70 p-5 shadow-xl shadow-indigo-100/60 sm:flex-row sm:items-center sm:justify-between sm:p-7">
-              <div className="flex items-center gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-xl text-emerald-500">
-                  <FaCheckCircle />
-                </span>
-                <div>
-                  <h3
-                    className={`${display} text-lg font-extrabold text-slate-900`}
-                  >
-                    Ready to publish?
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Your post will be shared with the CampusFind community.
-                  </p>
-                </div>
-              </div>
+            <section className="relative overflow-hidden rounded-[22px] bg-[#0b2a26] p-5 text-white sm:p-6">
+              <div className="cf-drift pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-[#1c8f6b]/30 blur-3xl" />
 
-              <motion.button
-                whileHover={{ scale: 1.04, y: -3 }}
-                whileTap={{ scale: 0.97 }}
-                type="submit"
-                disabled={mutation.isPending}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-300 transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {mutation.isPending ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Publishing...
-                  </>
-                ) : (
-                  "Publish post"
-                )}
-              </motion.button>
+              <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#3ddc97]/15 text-[#3ddc97]">
+                    <FaCheck />
+                  </span>
+                  <div>
+                    <h3 className="cf-display text-lg font-semibold">
+                      Ready to publish?
+                    </h3>
+                    <p className="text-[13px] text-[#9fc9bd]">
+                      Your post will be shared with the CampusFind community.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={mutation.isPending}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#3ddc97] px-8 text-sm font-semibold text-[#0b2a26] transition hover:bg-[#5ae6a9] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {mutation.isPending ? (
+                    <>
+                      <span className="cf-spin h-4 w-4 rounded-full border-2 border-[#0b2a26]/30 border-t-[#0b2a26]" />
+                      Publishing...
+                    </>
+                  ) : (
+                    "Publish post"
+                  )}
+                </button>
+              </div>
             </section>
 
-            <p className="flex items-center justify-center gap-2 text-center text-xs text-slate-400">
-              <FaShieldAlt className="text-indigo-400" />
+            <p className="text-center text-xs text-[#9ab0aa]">
               Please provide accurate information to help your campus community.
             </p>
           </div>
 
           {/* ================= RIGHT: LIVE PREVIEW ================= */}
           <aside className="hidden lg:sticky lg:top-24 lg:block">
-            <p className="mb-3 text-xs font-bold text-slate-500">
+            <p className="mb-3 flex items-center gap-2 text-[13px] font-medium text-[#6d837d]">
+              <span className="cf-live h-2 w-2 rounded-full bg-[#2fc785]" />
               Live preview
             </p>
-            <article className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
-              <div className="relative h-52 overflow-hidden bg-slate-100">
+
+            <article className="overflow-hidden rounded-[22px] border border-[#e3ebe8] bg-white">
+              <div className="relative h-52 overflow-hidden bg-[#eef4f2]">
                 {previewImage ? (
                   <img
                     src={previewImage}
@@ -693,69 +625,93 @@ const NewPost = () => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-indigo-50 to-violet-100 text-indigo-300">
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[#b5c9c3]">
                     <FaImage className="text-5xl" />
-                    <span className="text-[11px] font-medium">
+                    <span className="text-[11px] font-medium text-[#8ea19c]">
                       Your photo will appear here
                     </span>
                   </div>
                 )}
-                <div
-                  className={`absolute left-3 top-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-extrabold capitalize shadow-lg ${style.badge}`}
+
+                <span
+                  className={`absolute left-3 top-3 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ring-1 ring-inset backdrop-blur-sm ${
+                    isLost
+                      ? "bg-rose-50/95 text-rose-700 ring-rose-600/15"
+                      : "bg-teal-50/95 text-teal-700 ring-teal-600/15"
+                  }`}
                 >
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                   {formData.type}
-                </div>
+                </span>
+
                 {formData.images?.length > 1 && (
-                  <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
+                  <span className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[10px] font-semibold text-white backdrop-blur-sm">
                     <FaImage /> {formData.images.length}
-                  </div>
+                  </span>
                 )}
               </div>
 
               <div className="p-5">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <span className="rounded-lg bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-[#0d7a55]">
                     {formData.category
                       ? formatCategory(formData.category)
                       : "Category"}
                   </span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-[11px] text-[#8ea19c]">
                     {formatDate(formData.date)}
                   </span>
                 </div>
 
-                <h3
-                  className={`${display} truncate text-lg font-extrabold text-slate-900`}
-                >
+                <h3 className="cf-display truncate text-[17px] font-semibold text-[#10312c]">
                   {formData.itemName || "Item name"}
                 </h3>
 
-                <p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-slate-500">
+                <p className="mt-1.5 line-clamp-2 min-h-10 text-[13px] leading-5 text-[#7a8f8a]">
                   {formData.description || "No description provided."}
                 </p>
 
-                <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4 text-xs text-slate-600">
-                  <FaMapMarkerAlt className="shrink-0 text-indigo-500" />
+                <div className="mt-4 flex items-center gap-2 border-t border-[#edf2f0] pt-4 text-xs text-[#3c5a53]">
+                  <FaMapMarkerAlt className="shrink-0 text-[#0d9467]" />
                   <span className="truncate">
                     {previewLocation || "Location not specified"}
                   </span>
                 </div>
               </div>
             </article>
-            <p className="mt-3 text-[11px] leading-5 text-slate-400">
-              This is how your post will look in the All posts list.
+
+            <p className="mt-3 text-xs leading-5 text-[#8ea19c]">
+              This is how your post will look in the posts list.
             </p>
           </aside>
         </form>
 
-        <div className="mt-14 flex flex-wrap items-center justify-center gap-2 text-center text-xs text-slate-400">
-          <FaHandHoldingHeart className="text-indigo-400" />
+        <p className="mt-10 text-center text-xs text-[#9ab0aa]">
           Together, we make our campus a better place.
-        </div>
+        </p>
       </div>
     </div>
   );
 };
+
+// =====================================
+//              STYLES
+// =====================================
+
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600&display=swap');
+  .cf-root { font-family: 'Instrument Sans', system-ui, sans-serif; }
+  .cf-display { font-family: 'Bricolage Grotesque', 'Instrument Sans', sans-serif; letter-spacing: -0.02em; }
+  @keyframes cf-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes cf-pulse { 0% { box-shadow: 0 0 0 0 rgba(61,220,151,.55); } 100% { box-shadow: 0 0 0 10px rgba(61,220,151,0); } }
+  @keyframes cf-drift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(24px,-18px); } }
+  @keyframes cf-spin { to { transform: rotate(360deg); } }
+  .cf-rise { opacity: 0; animation: cf-rise .7s cubic-bezier(.2,.8,.2,1) forwards; }
+  .cf-live { animation: cf-pulse 1.8s infinite; }
+  .cf-drift { animation: cf-drift 14s ease-in-out infinite; }
+  .cf-spin { animation: cf-spin .9s linear infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .cf-rise, .cf-live, .cf-drift, .cf-spin { animation: none !important; opacity: 1; }
+  }
+`;
 
 export default NewPost;

@@ -35,8 +35,8 @@ const Login = () => {
   // Demo Credentials
   const demoAccounts = {
     user: {
-      email: "mehedi@hasan.test",
-      password: "mehEdi@123",
+      email: "oishi@google.test",
+      password: "oishI@123",
     },
     admin: {
       email: "admin@campusfind.test",
